@@ -2,7 +2,7 @@
 "use client";
 
 import Link from 'next/link';
-import { Moon, Sun, Settings2, BarChartHorizontalBig } from 'lucide-react'; // Added BarChartHorizontalBig
+import { Moon, Sun, Settings2, BarChartHorizontalBig } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -19,12 +19,12 @@ import { useLanguage } from '@/contexts/LanguageProvider';
 import type { Language } from '@/types';
 import { translations, defaultLang } from '@/lib/i18n';
 import { useState, useEffect } from 'react';
-import { useApp } from '@/contexts/AppContext'; // Added useApp
+import { useApp } from '@/contexts/AppContext';
 
 export default function AppHeader() {
   const { theme, toggleTheme } = useTheme();
   const { language, setLanguage, t } = useLanguage();
-  const { setCurrentView } = useApp(); // Added setCurrentView
+  const { setCurrentView } = useApp();
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
@@ -43,7 +43,7 @@ export default function AppHeader() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-16 items-center justify-between">
+      <div className="container mx-auto flex h-16 items-center justify-between px-4">
         <Link href="/" className="text-2xl font-bold text-primary" onClick={() => setCurrentView('deck-list')}>
           {isClient ? t('appName') : translations[defaultLang].appName}
         </Link>
