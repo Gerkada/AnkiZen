@@ -82,8 +82,11 @@
   "loadingTest": "Loading test...",
   "showHint": "Show Hint",
   "importWords": "Import Words",
+  "exportDeck": "Export Deck",
   "importToDeckSuccess": "Successfully imported {{count}} new cards to \"{{deckName}}\".",
   "importToDeckDuplicatesSkipped": "Successfully imported {{newCount}} new cards to \"{{deckName}}\". {{skippedCount}} duplicates were skipped.",
   "importToDeckNoNewCards": "No new cards were imported to \"{{deckName}}\". All cards in the file were duplicates or the file was empty/invalid.",
-  "fileReadError": "Could not read the selected file."
+  "fileReadError": "Could not read the selected file.",
+  "deckDeletedMsg": "Deck \"{{deckName}}\" deleted.",
+  "deckExportedSuccess": "Deck \"{{deckName}}\" exported successfully."
 }

@@ -2,11 +2,11 @@
 "use client";
 
 import { useState, useRef, type ChangeEvent } from 'react';
-import type { Deck } from '@/types';
+import type { Deck, Card as CardType } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Edit3, Trash2, MoreVertical, BookOpen, Edit, FileQuestion, Upload } from 'lucide-react';
+import { Edit3, Trash2, MoreVertical, BookOpen, Edit, FileQuestion, Upload, Download } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { useLanguage } from '@/contexts/LanguageProvider';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
@@ -19,7 +19,7 @@ interface DeckItemProps {
 }
 
 export default function DeckItem({ deck, cardCount }: DeckItemProps) {
-  const { setSelectedDeckId, setCurrentView, deleteDeck, importCardsToDeck } = useApp();
+  const { setSelectedDeckId, setCurrentView, deleteDeck, importCardsToDeck, getCardsByDeckId } = useApp();
   const { t } = useLanguage();
   const { toast } = useToast();
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -44,6 +44,7 @@ export default function DeckItem({ deck, cardCount }: DeckItemProps) {
   const handleDelete = () => {
     deleteDeck(deck.id);
     setIsDeleteDialogOpen(false);
+    toast({ title: t('successTitle'), description: t('deckDeletedMsg', { deckName: deck.name }) });
   };
 
   const handleImportWordsClick = () => {
@@ -63,7 +64,7 @@ export default function DeckItem({ deck, cardCount }: DeckItemProps) {
             reading: parts[1]?.trim() || '',
             translation: parts[2]?.trim() || '',
           };
-        }).filter(card => card.front); // Ensure front is not empty
+        }).filter(card => card.front);
 
         if (parsedCardsData.length > 0) {
           const result = importCardsToDeck(deck.id, parsedCardsData);
@@ -81,11 +82,31 @@ export default function DeckItem({ deck, cardCount }: DeckItemProps) {
         console.error("Error importing cards:", error);
         toast({ title: t('errorTitle'), description: t('fileReadError') || "Could not read file.", variant: "destructive" });
       }
-      // Reset file input to allow selecting the same file again
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
     }
+  };
+
+  const handleExportDeck = () => {
+    const cardsToExport = getCardsByDeckId(deck.id);
+    const headers = "Front,Reading,Translation";
+    const csvRows = cardsToExport.map(card =>
+      `"${card.front.replace(/"/g, '""')}","${(card.reading || '').replace(/"/g, '""')}","${card.translation.replace(/"/g, '""')}"`
+    );
+    const csvContent = [headers, ...csvRows].join("\n");
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `${deck.name.replace(/[^a-z0-9]/gi, '_')}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    toast({ title: t('successTitle'), description: t('deckExportedSuccess', { deckName: deck.name }) });
   };
 
   return (
@@ -98,7 +119,7 @@ export default function DeckItem({ deck, cardCount }: DeckItemProps) {
         onChange={handleFileSelected}
       />
       <Card
-        className="group flex flex-col cursor-pointer transition-all duration-200 ease-in-out hover:shadow-xl hover:scale-105 focus-within:shadow-xl focus-within:scale-105"
+        className="group flex flex-col cursor-pointer transition-all duration-200 ease-in-out hover:shadow-xl hover:scale-105 focus-within:shadow-xl focus-within:scale-105 md:min-w-96"
         tabIndex={0}
       >
         <CardHeader>
@@ -110,7 +131,7 @@ export default function DeckItem({ deck, cardCount }: DeckItemProps) {
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-150"
-                  onClick={(e) => e.stopPropagation()} // Prevent card focus when clicking menu
+                  onClick={(e) => e.stopPropagation()}
                 >
                   <MoreVertical className="h-4 w-4" />
                 </Button>
@@ -119,6 +140,10 @@ export default function DeckItem({ deck, cardCount }: DeckItemProps) {
                 <DropdownMenuItem onClick={handleImportWordsClick} className="cursor-pointer">
                   <Upload className="mr-2 h-4 w-4" />
                   {t('importWords')}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleExportDeck} className="cursor-pointer">
+                  <Download className="mr-2 h-4 w-4" />
+                  {t('exportDeck')}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setIsRenameDialogOpen(true)} className="cursor-pointer">
                   <Edit3 className="mr-2 h-4 w-4" />
@@ -133,7 +158,7 @@ export default function DeckItem({ deck, cardCount }: DeckItemProps) {
           </div>
           <CardDescription>{t('deckDetails', { count: cardCount })}</CardDescription>
         </CardHeader>
-        <CardContent className="flex-grow">
+        <CardContent> {/* Removed flex-grow */}
           {/* Future: could show some stats like due cards */}
         </CardContent>
         <CardFooter className="flex flex-wrap justify-end gap-2 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-150">

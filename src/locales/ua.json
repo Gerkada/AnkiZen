@@ -82,8 +82,11 @@
   "loadingTest": "Завантаження тесту...",
   "showHint": "Показати підказку",
   "importWords": "Імпорт слів",
+  "exportDeck": "Експорт колоди",
   "importToDeckSuccess": "Успішно імпортовано {{count}} нових карток до колоди \"{{deckName}}\".",
   "importToDeckDuplicatesSkipped": "Успішно імпортовано {{newCount}} нових карток до колоди \"{{deckName}}\". Пропущено {{skippedCount}} дублікатів.",
   "importToDeckNoNewCards": "Нові картки не були імпортовані до колоди \"{{deckName}}\". Усі картки у файлі були дублікатами або файл був порожнім/недійсним.",
-  "fileReadError": "Не вдалося прочитати обраний файл."
+  "fileReadError": "Не вдалося прочитати обраний файл.",
+  "deckDeletedMsg": "Колоду \"{{deckName}}\" видалено.",
+  "deckExportedSuccess": "Колоду \"{{deckName}}\" успішно експортовано."
 }
