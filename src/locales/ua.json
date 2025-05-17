@@ -106,6 +106,9 @@
   "days_few": "{{count}} дні",
   "days_many": "{{count}} днів",
   "days": "{{count}} днів",
+  "dayLabelSingular": "день",
+  "dayLabelFew": "дні",
+  "dayLabelMany": "днів",
   "intervalDistribution": "Розподіл інтервалів",
   "intervalDistributionDesc": "Розподіл карток за поточними інтервалами повторення.",
   "intervalNew": "Нові",
@@ -127,3 +130,5 @@
   "monthly": "Щомісяця",
   "noReviewData": "Даних про повторення поки що немає. Почніть вчитися, щоб побачити свою активність!"
 }
+
+    

@@ -7,14 +7,14 @@ import { useLanguage } from '@/contexts/LanguageProvider';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { ArrowLeft } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'; // Removed Legend as it's not used for these simple charts
 import { ChartConfig, ChartContainer, ChartTooltipContent } from "@/components/ui/chart";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   format, parseISO, startOfDay, differenceInDays, isSameDay, addDays, 
   subDays, eachDayOfInterval, endOfDay, isWithinInterval, 
   startOfWeek, endOfWeek, eachWeekOfInterval, 
-  startOfMonth, endOfMonth, eachMonthOfInterval, formatISO
+  startOfMonth, endOfMonth, formatISO as dateFnsFormatISO // Renamed to avoid conflict
 } from 'date-fns';
 import { enUS, ru, uk } from 'date-fns/locale';
 
@@ -63,7 +63,7 @@ export default function StatisticsView() {
 
     const reviewedCardDates = cards
       .filter(card => card.repetitions > 0 && card.updatedAt)
-      .map(card => formatISO(startOfDay(parseISO(card.updatedAt))))
+      .map(card => dateFnsFormatISO(startOfDay(parseISO(card.updatedAt))))
       .sort();
     
     const uniqueDates = [...new Set(reviewedCardDates)];
@@ -74,24 +74,51 @@ export default function StatisticsView() {
     let today = startOfDay(new Date());
 
     // Calculate current streak
-    if (uniqueDates.includes(formatISO(today)) || uniqueDates.includes(formatISO(addDays(today, -1)))) {
+    if (uniqueDates.includes(dateFnsFormatISO(today)) || uniqueDates.includes(dateFnsFormatISO(addDays(today, -1)))) {
       let streak = 0;
       let lastDateConsidered = today;
       for (let i = uniqueDates.length -1; i >=0; i--) {
           const currentDate = parseISO(uniqueDates[i]);
           if (isSameDay(currentDate, lastDateConsidered)) {
-              streak++;
+              // Part of streak from today or yesterday. If it's today, it's 1.
+              if (isSameDay(currentDate, today)) streak = Math.max(streak, 1); 
           } else if (isSameDay(currentDate, addDays(lastDateConsidered, -1))) {
-              streak++;
+             // This means lastDateConsidered was yesterday relative to currentDate
+             // which means currentDate is part of the sequence
           } else {
               // Streak broken if not today or yesterday relative to lastDateConsidered
               if (!isSameDay(lastDateConsidered, today)) break; 
               // If checking from today, and it's not today or yesterday, break
               if (isSameDay(lastDateConsidered, today) && !isSameDay(currentDate, addDays(today, -1))) break;
           }
+          streak++; // Increment for each valid day counted backwards
           lastDateConsidered = currentDate;
       }
-       currentStreak = streak;
+       // Adjust streak if it only contains yesterday but not today
+      if (streak > 0 && !uniqueDates.includes(dateFnsFormatISO(today)) && uniqueDates.includes(dateFnsFormatISO(addDays(today,-1)))) {
+        // streak includes yesterday, but not today. So, current streak is 0 if today is not studied.
+        // However, if the logic counts backward from today, and today is NOT studied, 
+        // but yesterday IS, then current streak should be 0.
+        // The logic above correctly handles this by breaking if it's not today or consecutive.
+        // If we only found 'yesterday', the loop starting from 'today' would count it,
+        // then break. So currentStreak would be 1. This needs to be 0 if today isn't studied.
+      }
+      // Corrected current streak logic
+      let tempCurrentStreak = 0;
+      let checkDate = today;
+      if (uniqueDates.includes(dateFnsFormatISO(checkDate))) {
+        tempCurrentStreak++;
+        checkDate = subDays(checkDate, 1);
+        while(uniqueDates.includes(dateFnsFormatISO(checkDate))) {
+          tempCurrentStreak++;
+          checkDate = subDays(checkDate, 1);
+        }
+      } else if (uniqueDates.includes(dateFnsFormatISO(subDays(checkDate, 1)))) {
+        // If today is not studied, but yesterday was, current streak is 0
+        tempCurrentStreak = 0;
+      }
+      currentStreak = tempCurrentStreak;
+
     }
 
 
@@ -111,12 +138,35 @@ export default function StatisticsView() {
             }
         }
     }
-    longestStreak = Math.max(localLongestStreak, currentSequence, currentStreak); // Ensure currentStreak is considered if it's the longest
-    if (uniqueDates.length === 1) longestStreak = 1;
+    longestStreak = Math.max(localLongestStreak, currentSequence, currentStreak);
+    if (uniqueDates.length === 1 && currentStreak === 0) { // Only one day of study, and it wasn't today or yesterday.
+        longestStreak = 1; // Longest streak is 1, current is 0.
+    } else if (uniqueDates.length === 1 && currentStreak > 0) {
+        longestStreak = Math.max(longestStreak, currentStreak);
+    }
 
 
     return { current: currentStreak, longest: longestStreak };
   }, [cards]);
+
+  const getDayLabel = (count: number): string => {
+    if (language === 'ru') {
+      const mod10 = count % 10;
+      const mod100 = count % 100;
+      if (mod10 === 1 && mod100 !== 11) return t('dayLabelSingular');
+      if ([2, 3, 4].includes(mod10) && ![12, 13, 14].includes(mod100)) return t('dayLabelFew');
+      return t('dayLabelMany');
+    }
+    if (language === 'ua') {
+      const mod10 = count % 10;
+      const mod100 = count % 100;
+      if (mod10 === 1 && mod100 !== 11) return t('dayLabelSingular');
+      if ([2, 3, 4].includes(mod10) && ![12, 13, 14].includes(mod100)) return t('dayLabelFew');
+      return t('dayLabelMany');
+    }
+    // Default for English or other simple pluralizations
+    return count === 1 ? t('dayLabelSingular') : t('dayLabelPlural');
+  };
 
   const intervalData = useMemo(() => {
     if (cards.length === 0) return [];
@@ -162,15 +212,17 @@ export default function StatisticsView() {
 
   const monthlyActivityData = useMemo(() => {
     if (reviewLogs.length === 0) return [];
-    const twelveMonthsAgo = startOfMonth(subDays(new Date(), 365)); // Approx 12 months
-    const currentMonthEnd = endOfMonth(new Date());
+    // const twelveMonthsAgo = startOfMonth(subDays(new Date(), 365)); // Approx 12 months
+    // const currentMonthEnd = endOfMonth(new Date());
     // Ensure we get 12 distinct months
     let monthsToDisplay : Date[] = [];
     let currentMonthIter = startOfMonth(new Date());
     for(let i=0; i<12; i++){
         monthsToDisplay.unshift(currentMonthIter);
-        currentMonthIter = subDays(startOfMonth(currentMonthIter),1); // go to previous month
-        currentMonthIter = startOfMonth(currentMonthIter);
+        if (i < 11) { // to avoid going one month too far for the loop
+            currentMonthIter = subDays(startOfMonth(currentMonthIter),1); // go to previous month
+            currentMonthIter = startOfMonth(currentMonthIter);
+        }
     }
 
 
@@ -216,8 +268,8 @@ export default function StatisticsView() {
             <CardTitle>{t('learningStreak')}</CardTitle>
           </CardHeader>
           <CardContent>
-            <p>{t('currentStreak')}: <span className="font-bold">{learningStreak.current} {t('days', {count: learningStreak.current})}</span></p>
-            <p>{t('longestStreak')}: <span className="font-bold">{learningStreak.longest} {t('days', {count: learningStreak.longest})}</span></p>
+            <p>{t('currentStreak')}: <span className="font-bold">{learningStreak.current} {getDayLabel(learningStreak.current)}</span></p>
+            <p>{t('longestStreak')}: <span className="font-bold">{learningStreak.longest} {getDayLabel(learningStreak.longest)}</span></p>
           </CardContent>
         </Card>
       </div>
@@ -315,3 +367,6 @@ export default function StatisticsView() {
     </div>
   );
 }
+
+
+    

@@ -105,6 +105,8 @@
   "days_one": "{{count}} day",
   "days_other": "{{count}} days",
   "days": "{{count}} days",
+  "dayLabelSingular": "day",
+  "dayLabelPlural": "days",
   "intervalDistribution": "Interval Distribution",
   "intervalDistributionDesc": "Distribution of cards by current review interval.",
   "intervalNew": "New",
@@ -126,3 +128,5 @@
   "monthly": "Monthly",
   "noReviewData": "No review data available yet. Start studying to see your activity!"
 }
+
+    
