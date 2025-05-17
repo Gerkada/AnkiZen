@@ -1,9 +1,11 @@
+
 "use client";
 
 import AppHeader from '@/components/AppHeader';
 import DeckList from '@/components/deck/DeckList';
 import StudyView from '@/components/study/StudyView';
 import EditCardsView from '@/components/edit/EditCardsView';
+import TestView from '@/components/test/TestView'; // Added TestView import
 import { useApp } from '@/contexts/AppContext';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -37,6 +39,8 @@ export default function Home() {
         return <StudyView />;
       case 'edit-cards':
         return <EditCardsView />;
+      case 'test':
+        return <TestView />; // Added case for TestView
       case 'deck-list':
       default:
         return <DeckList />;
@@ -55,3 +59,4 @@ export default function Home() {
     </div>
   );
 }
+

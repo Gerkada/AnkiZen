@@ -68,5 +68,15 @@
   "frontRequiredError": "Поле 'Лицьова сторона' є обов'язковим.",
   "translationRequiredError": "Поле 'Переклад' є обов'язковим.",
   "cardUpdatedMsg": "Картку оновлено.",
-  "cardAddedMsg": "Картку додано."
+  "cardAddedMsg": "Картку додано.",
+  "takeTest": "Пройти тест",
+  "testMode": "Тестовий режим",
+  "correct": "Правильно",
+  "incorrect": "Неправильно",
+  "notEnoughCardsForTest": "Недостатньо карток у цій колоді для тесту (мінімум {{minCount}}).",
+  "testCompleteTitle": "Тест завершено!",
+  "finalScore": "Підсумковий рахунок",
+  "restartTest": "Почати тест знову",
+  "loadingTest": "Завантаження тесту..."
 }
+

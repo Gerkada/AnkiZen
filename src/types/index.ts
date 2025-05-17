@@ -34,6 +34,7 @@ export interface UserSettings {
   showStudyControlsTooltip: boolean; // Added for the new tooltip
 }
 
-export type AppView = 'deck-list' | 'study' | 'edit-cards';
+export type AppView = 'deck-list' | 'study' | 'edit-cards' | 'test';
 
 export type SRSGrade = 'again' | 'hard' | 'good' | 'easy';
+

@@ -68,5 +68,15 @@
   "frontRequiredError": "Front field is required.",
   "translationRequiredError": "Translation field is required.",
   "cardUpdatedMsg": "Card updated.",
-  "cardAddedMsg": "Card added."
+  "cardAddedMsg": "Card added.",
+  "takeTest": "Take Test",
+  "testMode": "Test Mode",
+  "correct": "Correct",
+  "incorrect": "Incorrect",
+  "notEnoughCardsForTest": "Not enough cards in this deck for a test (minimum {{minCount}} required).",
+  "testCompleteTitle": "Test Complete!",
+  "finalScore": "Final Score",
+  "restartTest": "Restart Test",
+  "loadingTest": "Loading test..."
 }
+

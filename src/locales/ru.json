@@ -68,5 +68,15 @@
   "frontRequiredError": "Поле 'Лицевая сторона' обязательно для заполнения.",
   "translationRequiredError": "Поле 'Перевод' обязательно для заполнения.",
   "cardUpdatedMsg": "Карточка обновлена.",
-  "cardAddedMsg": "Карточка добавлена."
+  "cardAddedMsg": "Карточка добавлена.",
+  "takeTest": "Пройти тест",
+  "testMode": "Тестовый режим",
+  "correct": "Правильно",
+  "incorrect": "Неправильно",
+  "notEnoughCardsForTest": "Недостаточно карточек в этой колоде для теста (минимум {{minCount}}).",
+  "testCompleteTitle": "Тест завершен!",
+  "finalScore": "Итоговый счет",
+  "restartTest": "Начать тест заново",
+  "loadingTest": "Загрузка теста..."
 }
+

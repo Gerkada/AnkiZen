@@ -6,7 +6,7 @@ import type { Deck } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Edit3, Trash2, MoreVertical, BookOpen, Edit } from 'lucide-react';
+import { Edit3, Trash2, MoreVertical, BookOpen, Edit, FileQuestion } from 'lucide-react'; // Added FileQuestion
 import { useApp } from '@/contexts/AppContext';
 import { useLanguage } from '@/contexts/LanguageProvider';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
@@ -31,6 +31,11 @@ export default function DeckItem({ deck, cardCount }: DeckItemProps) {
   const handleEditCards = () => {
     setSelectedDeckId(deck.id);
     setCurrentView('edit-cards');
+  };
+
+  const handleTest = () => {
+    setSelectedDeckId(deck.id);
+    setCurrentView('test');
   };
 
   const handleDelete = () => {
@@ -72,15 +77,19 @@ export default function DeckItem({ deck, cardCount }: DeckItemProps) {
           </div>
           <CardDescription>{t('deckDetails', { count: cardCount })}</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex-grow">
           {/* Future: could show some stats like due cards */}
         </CardContent>
         <CardFooter className="flex flex-wrap justify-end gap-2 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-150">
-          <Button variant="outline" onClick={handleEditCards}>
+          <Button variant="outline" size="sm" onClick={handleEditCards}>
             <Edit className="mr-2 h-4 w-4" />
             {t('manageCards')}
           </Button>
-          <Button onClick={handleStudy}>
+          <Button variant="outline" size="sm" onClick={handleTest} disabled={cardCount < 4}>
+            <FileQuestion className="mr-2 h-4 w-4" />
+            {t('takeTest')}
+          </Button>
+          <Button size="sm" onClick={handleStudy}>
             <BookOpen className="mr-2 h-4 w-4" />
             {t('startStudying')}
           </Button>
@@ -112,3 +121,4 @@ export default function DeckItem({ deck, cardCount }: DeckItemProps) {
     </>
   );
 }
+
