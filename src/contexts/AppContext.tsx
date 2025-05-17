@@ -8,6 +8,17 @@ import useLocalStorage from '@/hooks/useLocalStorage';
 import { calculateNextReview, createNewCard } from '@/lib/srs';
 import { formatISO, parseISO, isBefore, startOfDay } from 'date-fns';
 
+interface ParsedCardData {
+  front: string;
+  reading: string;
+  translation: string;
+}
+
+interface ImportResult {
+  newCount: number;
+  skippedCount: number;
+}
+
 interface AppContextState {
   // Data
   decks: Deck[];
@@ -23,7 +34,7 @@ interface AppContextState {
   addDeck: (name: string) => Deck;
   renameDeck: (deckId: string, newName: string) => void;
   deleteDeck: (deckId: string) => void;
-  importCardsToDeck: (deckId: string, parsedCards: { front: string; reading: string; translation: string }[]) => void;
+  importCardsToDeck: (deckId: string, parsedCardsData: ParsedCardData[]) => ImportResult;
   
   // Card Actions
   addCardToDeck: (deckId: string, front: string, reading: string, translation: string) => Card;
@@ -49,7 +60,7 @@ const initialUserSettings: UserSettings = {
   lastStudiedDeckId: null,
   swapFrontBack: false,
   showStudyControlsTooltip: true,
-  shuffleStudyQueue: false, // Default shuffle to false
+  shuffleStudyQueue: false,
 };
 
 const AppContext = createContext<AppContextState | undefined>(undefined);
@@ -61,7 +72,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   
   const [currentView, setCurrentViewInternal] = useState<AppView>('deck-list');
   const [selectedDeckId, setSelectedDeckIdInternal] = useState<string | null>(userSettings.lastStudiedDeckId || null);
-  const [isLoading, setIsLoading] = useState(true); // To handle initial load from localStorage
+  const [isLoading, setIsLoading] = useState(true); 
 
   useEffect(() => {
     setIsLoading(false);
@@ -122,10 +133,31 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return newCard;
   }, [setCards]);
   
-  const importCardsToDeck = useCallback((deckId: string, parsedCards: { front: string; reading: string; translation: string }[]) => {
-    const newCardsForDeck = parsedCards.map(pc => createNewCard(deckId, pc.front, pc.reading, pc.translation));
-    setCards(prev => [...prev, ...newCardsForDeck]);
-  }, [setCards]);
+  const importCardsToDeck = useCallback((deckId: string, parsedCardsData: ParsedCardData[]): ImportResult => {
+    const existingCardsInDeck = cards.filter(c => c.deckId === deckId);
+    const existingFronts = new Set(existingCardsInDeck.map(c => c.front.toLowerCase()));
+    
+    let newCount = 0;
+    let skippedCount = 0;
+    const cardsToActuallyAdd: Card[] = [];
+
+    parsedCardsData.forEach(parsedCard => {
+      if (existingFronts.has(parsedCard.front.toLowerCase())) {
+        skippedCount++;
+      } else {
+        const newCard = createNewCard(deckId, parsedCard.front, parsedCard.reading, parsedCard.translation);
+        cardsToActuallyAdd.push(newCard);
+        existingFronts.add(parsedCard.front.toLowerCase()); // Add to set to handle duplicates within the import file itself
+        newCount++;
+      }
+    });
+
+    if (cardsToActuallyAdd.length > 0) {
+      setCards(prev => [...prev, ...cardsToActuallyAdd]);
+    }
+    
+    return { newCount, skippedCount };
+  }, [cards, setCards]);
 
   const updateCard = useCallback((updatedCardFields: Partial<Card> & { id: string }) => {
     setCards(prev => prev.map(c => c.id === updatedCardFields.id ? { ...c, ...updatedCardFields, updatedAt: formatISO(new Date()) } : c));
@@ -171,7 +203,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const newCards: Card[] = [];
 
     deckCards.forEach(card => {
-      if (card.repetitions === 0) { // New card, not yet graded (interval might be 0)
+      if (card.repetitions === 0) { 
         newCards.push(card);
       } else {
         const dueDate = parseISO(card.dueDate);
@@ -180,7 +212,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
       }
     });
-    // Sort new cards by creation date (older first), due cards by due date (earlier first)
     newCards.sort((a, b) => parseISO(a.createdAt).getTime() - parseISO(b.createdAt).getTime());
     due.sort((a,b) => parseISO(a.dueDate).getTime() - parseISO(b.dueDate).getTime());
 

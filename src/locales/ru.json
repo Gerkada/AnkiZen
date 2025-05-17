@@ -66,6 +66,7 @@
   "actions": "Действия",
   "errorTitle": "Ошибка",
   "successTitle": "Успех",
+  "infoTitle": "Инфо",
   "frontRequiredError": "Поле 'Лицевая сторона' обязательно для заполнения.",
   "translationRequiredError": "Поле 'Перевод' обязательно для заполнения.",
   "cardUpdatedMsg": "Карточка обновлена.",
@@ -79,5 +80,10 @@
   "finalScore": "Итоговый счет",
   "restartTest": "Начать тест заново",
   "loadingTest": "Загрузка теста...",
-  "showHint": "Показать подсказку"
+  "showHint": "Показать подсказку",
+  "importWords": "Импорт слов",
+  "importToDeckSuccess": "Успешно импортировано {{count}} новых карточек в колоду \"{{deckName}}\".",
+  "importToDeckDuplicatesSkipped": "Успешно импортировано {{newCount}} новых карточек в колоду \"{{deckName}}\". Пропущено {{skippedCount}} дубликатов.",
+  "importToDeckNoNewCards": "Новые карточки не были импортированы в колоду \"{{deckName}}\". Все карточки в файле были дубликатами или файл был пуст/неверен.",
+  "fileReadError": "Не удалось прочитать выбранный файл."
 }

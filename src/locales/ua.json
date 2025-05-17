@@ -66,6 +66,7 @@
   "actions": "Дії",
   "errorTitle": "Помилка",
   "successTitle": "Успіх",
+  "infoTitle": "Інфо",
   "frontRequiredError": "Поле 'Лицьова сторона' є обов'язковим.",
   "translationRequiredError": "Поле 'Переклад' є обов'язковим.",
   "cardUpdatedMsg": "Картку оновлено.",
@@ -79,5 +80,10 @@
   "finalScore": "Підсумковий рахунок",
   "restartTest": "Почати тест знову",
   "loadingTest": "Завантаження тесту...",
-  "showHint": "Показати підказку"
+  "showHint": "Показати підказку",
+  "importWords": "Імпорт слів",
+  "importToDeckSuccess": "Успішно імпортовано {{count}} нових карток до колоди \"{{deckName}}\".",
+  "importToDeckDuplicatesSkipped": "Успішно імпортовано {{newCount}} нових карток до колоди \"{{deckName}}\". Пропущено {{skippedCount}} дублікатів.",
+  "importToDeckNoNewCards": "Нові картки не були імпортовані до колоди \"{{deckName}}\". Усі картки у файлі були дублікатами або файл був порожнім/недійсним.",
+  "fileReadError": "Не вдалося прочитати обраний файл."
 }

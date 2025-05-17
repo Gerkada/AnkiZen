@@ -1,16 +1,17 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useState, useRef, type ChangeEvent } from 'react';
 import type { Deck } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Edit3, Trash2, MoreVertical, BookOpen, Edit, FileQuestion } from 'lucide-react'; // Added FileQuestion
+import { Edit3, Trash2, MoreVertical, BookOpen, Edit, FileQuestion, Upload } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { useLanguage } from '@/contexts/LanguageProvider';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import RenameDeckDialog from './RenameDeckDialog';
+import { useToast } from '@/hooks/use-toast';
 
 interface DeckItemProps {
   deck: Deck;
@@ -18,10 +19,12 @@ interface DeckItemProps {
 }
 
 export default function DeckItem({ deck, cardCount }: DeckItemProps) {
-  const { setSelectedDeckId, setCurrentView, deleteDeck } = useApp();
+  const { setSelectedDeckId, setCurrentView, deleteDeck, importCardsToDeck } = useApp();
   const { t } = useLanguage();
+  const { toast } = useToast();
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleStudy = () => {
     setSelectedDeckId(deck.id);
@@ -43,10 +46,59 @@ export default function DeckItem({ deck, cardCount }: DeckItemProps) {
     setIsDeleteDialogOpen(false);
   };
 
+  const handleImportWordsClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileSelected = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      try {
+        const fileContent = await file.text();
+        const lines = fileContent.split('\n').filter(line => line.trim() !== '');
+        const parsedCardsData = lines.map(line => {
+          const parts = line.split(',');
+          return {
+            front: parts[0]?.trim() || '',
+            reading: parts[1]?.trim() || '',
+            translation: parts[2]?.trim() || '',
+          };
+        }).filter(card => card.front); // Ensure front is not empty
+
+        if (parsedCardsData.length > 0) {
+          const result = importCardsToDeck(deck.id, parsedCardsData);
+          if (result.newCount > 0 && result.skippedCount > 0) {
+            toast({ title: t('successTitle'), description: t('importToDeckDuplicatesSkipped', { newCount: result.newCount, deckName: deck.name, skippedCount: result.skippedCount }) });
+          } else if (result.newCount > 0) {
+            toast({ title: t('successTitle'), description: t('importToDeckSuccess', { count: result.newCount, deckName: deck.name }) });
+          } else {
+            toast({ title: t('infoTitle') || 'Info', description: t('importToDeckNoNewCards', { deckName: deck.name }) });
+          }
+        } else {
+          toast({ title: t('infoTitle') || 'Info', description: t('importToDeckNoNewCards', { deckName: deck.name }) });
+        }
+      } catch (error) {
+        console.error("Error importing cards:", error);
+        toast({ title: t('errorTitle'), description: t('fileReadError') || "Could not read file.", variant: "destructive" });
+      }
+      // Reset file input to allow selecting the same file again
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
   return (
     <>
-      <Card 
-        className="group flex flex-col cursor-pointer transition-all duration-200 ease-in-out hover:shadow-xl hover:scale-105 focus-within:shadow-xl focus-within:scale-105" 
+      <input
+        type="file"
+        ref={fileInputRef}
+        style={{ display: 'none' }}
+        accept=".csv,.txt"
+        onChange={handleFileSelected}
+      />
+      <Card
+        className="group flex flex-col cursor-pointer transition-all duration-200 ease-in-out hover:shadow-xl hover:scale-105 focus-within:shadow-xl focus-within:scale-105"
         tabIndex={0}
       >
         <CardHeader>
@@ -54,9 +106,9 @@ export default function DeckItem({ deck, cardCount }: DeckItemProps) {
             <CardTitle className="text-xl font-semibold">{deck.name}</CardTitle>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
+                <Button
+                  variant="ghost"
+                  size="icon"
                   className="h-8 w-8 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-150"
                   onClick={(e) => e.stopPropagation()} // Prevent card focus when clicking menu
                 >
@@ -64,6 +116,10 @@ export default function DeckItem({ deck, cardCount }: DeckItemProps) {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                <DropdownMenuItem onClick={handleImportWordsClick} className="cursor-pointer">
+                  <Upload className="mr-2 h-4 w-4" />
+                  {t('importWords')}
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setIsRenameDialogOpen(true)} className="cursor-pointer">
                   <Edit3 className="mr-2 h-4 w-4" />
                   {t('renameDeck')}
@@ -112,13 +168,12 @@ export default function DeckItem({ deck, cardCount }: DeckItemProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      
-      <RenameDeckDialog 
-        isOpen={isRenameDialogOpen} 
-        onOpenChange={setIsRenameDialogOpen} 
-        deck={deck} 
+
+      <RenameDeckDialog
+        isOpen={isRenameDialogOpen}
+        onOpenChange={setIsRenameDialogOpen}
+        deck={deck}
       />
     </>
   );
 }
-
