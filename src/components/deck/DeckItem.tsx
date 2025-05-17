@@ -119,7 +119,7 @@ export default function DeckItem({ deck, cardCount }: DeckItemProps) {
         onChange={handleFileSelected}
       />
       <Card
-        className="group relative flex flex-col cursor-pointer transition-all duration-200 ease-in-out hover:shadow-xl hover:scale-105 hover:z-10 focus-within:shadow-xl focus-within:scale-105 focus-within:z-10"
+        className="group relative flex flex-col cursor-pointer transition-transform transition-shadow duration-200 ease-in-out hover:shadow-xl hover:scale-105 hover:z-10 focus-within:shadow-xl focus-within:scale-105 focus-within:z-10"
         tabIndex={0}
       >
         <CardHeader>
@@ -161,7 +161,7 @@ export default function DeckItem({ deck, cardCount }: DeckItemProps) {
         <CardContent className="px-6 py-2"> {/* Reduced vertical padding, content minimal by default */}
           {/* Future: could show some stats like due cards */}
         </CardContent>
-        <CardFooter className="flex flex-wrap justify-end gap-2 hidden group-hover:flex group-focus-within:flex transition-all duration-200 ease-in-out mt-auto p-6 pt-0">
+        <CardFooter className="flex flex-wrap justify-end gap-2 hidden group-hover:flex group-focus-within:flex mt-auto p-6 pt-0">
           {/* Buttons are shown on hover/focus. mt-auto helps push footer down if CardContent ever has more content. */}
           {/* Default ShadCN CardFooter padding is p-6 pt-0. We ensure this applies when visible. */}
           <Button variant="outline" size="sm" onClick={handleEditCards}>
