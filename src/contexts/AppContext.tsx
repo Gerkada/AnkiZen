@@ -3,7 +3,7 @@
 
 import type { ReactNode } from 'react';
 import { createContext, useContext, useState, useCallback, useEffect, useMemo } from 'react';
-import type { Deck, Card, UserSettings, AppView, Language, Theme, SRSGrade } from '@/types';
+import type { Deck, Card, UserSettings, AppView, SRSGrade } from '@/types';
 import useLocalStorage from '@/hooks/useLocalStorage';
 import { calculateNextReview, createNewCard } from '@/lib/srs';
 import { formatISO, parseISO, isBefore, startOfDay } from 'date-fns';
@@ -33,7 +33,7 @@ interface AppContextState {
   // Deck Actions
   addDeck: (name: string) => Deck;
   renameDeck: (deckId: string, newName: string) => void;
-  updateDeck: (deckId: string, updates: Partial<Omit<Deck, 'id' | 'createdAt'>>) => void; // Added generic update
+  updateDeck: (deckId: string, updates: Partial<Omit<Deck, 'id' | 'createdAt'>>) => void;
   deleteDeck: (deckId: string) => void;
   importCardsToDeck: (deckId: string, parsedCardsData: ParsedCardData[]) => ImportResult;
   
@@ -59,7 +59,6 @@ const initialUserSettings: UserSettings = {
   language: 'en',
   theme: 'light',
   lastStudiedDeckId: null,
-  // swapFrontBack: false, // Removed
   showStudyControlsTooltip: true,
   shuffleStudyQueue: false,
 };
@@ -95,14 +94,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setUserSettingsState(tempUserSettings);
     }
 
-    // Ensure all decks have defaultSwapFrontBack
+    // Ensure all decks have new properties with defaults
     let updatedDecks = false;
     const tempDecks = decks.map(deck => {
+      const newDeckProps: Partial<Deck> = {};
       if (typeof deck.defaultSwapFrontBack === 'undefined') {
+        newDeckProps.defaultSwapFrontBack = false;
         updatedDecks = true;
-        return { ...deck, defaultSwapFrontBack: false };
       }
-      return deck;
+      if (typeof deck.newCardsPerDay === 'undefined') {
+        newDeckProps.newCardsPerDay = 20; // Default new cards per day
+        updatedDecks = true;
+      }
+      if (typeof deck.dailyNewCardsIntroduced === 'undefined') {
+        newDeckProps.dailyNewCardsIntroduced = 0;
+        updatedDecks = true;
+      }
+      if (typeof deck.lastSessionDate === 'undefined') {
+        newDeckProps.lastSessionDate = formatISO(new Date(0)); // A very old date
+        updatedDecks = true;
+      }
+      return updatedDecks ? { ...deck, ...newDeckProps } : deck;
     });
     if (updatedDecks) {
       setDecks(tempDecks);
@@ -129,7 +141,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const newDeck: Deck = { 
       id: crypto.randomUUID(), 
       name, 
-      defaultSwapFrontBack: false, // Initialize new setting
+      defaultSwapFrontBack: false,
+      newCardsPerDay: 20, // Default
+      dailyNewCardsIntroduced: 0,
+      lastSessionDate: formatISO(new Date(0)), // Far past date
       createdAt: now, 
       updatedAt: now 
     };
@@ -156,7 +171,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (selectedDeckId === deckId) {
       setSelectedDeckId(null);
     }
-  }, [setDecks, setCards, selectedDeckId, setSelectedDeckId, updateDeck]);
+  }, [setDecks, setCards, selectedDeckId, setSelectedDeckId]);
 
   const addCardToDeck = useCallback((deckId: string, front: string, reading: string, translation: string): Card => {
     const newCard = createNewCard(deckId, front, reading, translation);
@@ -201,10 +216,41 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const reviewCard = useCallback((cardId: string, grade: SRSGrade) => {
     const card = cards.find(c => c.id === cardId);
     if (card) {
+      const wasNewCard = card.repetitions === 0;
       const updates = calculateNextReview(card, grade);
       updateCard({ id: cardId, ...updates });
+
+      if (wasNewCard && grade !== 'again') {
+        const currentDeck = decks.find(d => d.id === card.deckId); // Get current deck state
+        if (currentDeck) {
+          const todayISO = formatISO(startOfDay(new Date()));
+          let newDailyIntroduced = currentDeck.dailyNewCardsIntroduced;
+          
+          if (currentDeck.lastSessionDate !== todayISO) {
+            // This is the first new card reviewed today for this deck
+            newDailyIntroduced = 1;
+          } else {
+            newDailyIntroduced += 1;
+          }
+          // Only increment if still within the daily limit for *new* cards
+          // This check might be slightly redundant if getDueCardsForDeck is strict, but good for safety
+          if (newDailyIntroduced <= currentDeck.newCardsPerDay) {
+             updateDeck(card.deckId, {
+                dailyNewCardsIntroduced: newDailyIntroduced,
+                lastSessionDate: todayISO, 
+             });
+          } else {
+            // If somehow more new cards were reviewed than allowed (e.g. limit changed mid-session),
+            // ensure dailyNewCardsIntroduced doesn't exceed newCardsPerDay.
+            updateDeck(card.deckId, {
+                dailyNewCardsIntroduced: currentDeck.newCardsPerDay,
+                lastSessionDate: todayISO,
+            });
+          }
+        }
+      }
     }
-  }, [cards, updateCard]);
+  }, [cards, decks, updateCard, updateDeck]);
 
   const resetDeckProgress = useCallback((deckId: string) => {
     const now = formatISO(new Date());
@@ -221,21 +267,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
       return c;
     }));
-  }, [setCards]);
+    // Also reset daily new card count for this deck if progress is reset
+    updateDeck(deckId, { dailyNewCardsIntroduced: 0, lastSessionDate: formatISO(startOfDay(new Date())) });
+  }, [setCards, updateDeck]);
 
   const getDeckById = useCallback((deckId: string) => decks.find(d => d.id === deckId), [decks]);
   
   const getCardsByDeckId = useCallback((deckId: string) => cards.filter(c => c.deckId === deckId), [cards]);
 
   const getDueCardsForDeck = useCallback((deckId: string) => {
-    const deckCards = getCardsByDeckId(deckId);
+    const currentDeck = getDeckById(deckId);
+    if (!currentDeck) return { due: [], newCards: [] };
+
+    const allDeckCards = getCardsByDeckId(deckId);
     const today = startOfDay(new Date());
     const due: Card[] = [];
-    const newCards: Card[] = [];
+    const potentialNewCards: Card[] = [];
 
-    deckCards.forEach(card => {
+    allDeckCards.forEach(card => {
       if (card.repetitions === 0) { 
-        newCards.push(card);
+        potentialNewCards.push(card);
       } else {
         const dueDate = parseISO(card.dueDate);
         if (isBefore(dueDate, today) || dueDate.getTime() === today.getTime()) {
@@ -243,11 +294,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
       }
     });
-    newCards.sort((a, b) => parseISO(a.createdAt).getTime() - parseISO(b.createdAt).getTime());
+    
+    potentialNewCards.sort((a, b) => parseISO(a.createdAt).getTime() - parseISO(b.createdAt).getTime());
     due.sort((a,b) => parseISO(a.dueDate).getTime() - parseISO(b.dueDate).getTime());
+    
+    // Apply the daily new card limit based on currentDeck's (potentially daily-reset) stats
+    const newCardsLimit = Math.max(0, currentDeck.newCardsPerDay - currentDeck.dailyNewCardsIntroduced);
+    const actualNewCards = potentialNewCards.slice(0, newCardsLimit);
 
-    return { due, newCards };
-  }, [cards, getCardsByDeckId]); // Removed 'cards' from here as getCardsByDeckId already depends on it
+    return { due, newCards: actualNewCards };
+  }, [cards, getCardsByDeckId, getDeckById, decks]);
 
 
   const contextValue = useMemo(() => ({

@@ -91,7 +91,8 @@
   "deckExportedSuccess": "Колода \"{{deckName}}\" успешно экспортирована.",
   "deckUnderStudy": "В изучении",
   "deckLearned": "Выучено",
-  "deckTotal": "Всего"
+  "deckTotal": "Всего",
+  "deckSettings": "Настройки колоды",
+  "newCardsPerDay": "Новых карточек в день",
+  "dailyNewIntroduced": "Новых сегодня"
 }
-
-    

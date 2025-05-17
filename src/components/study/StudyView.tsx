@@ -8,15 +8,17 @@ import { useLanguage } from '@/contexts/LanguageProvider';
 import Flashcard from './Flashcard';
 import StudyControls from './StudyControls';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, RotateCcw, Repeat, Settings, XCircle, Shuffle } from 'lucide-react';
+import { Input } from '@/components/ui/input'; // Added for new card limit setting
+import { ArrowLeft, RotateCcw, Repeat, Settings, XCircle, Shuffle, ListChecks } from 'lucide-react'; // Added ListChecks
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { shuffleArray } from '@/lib/utils';
+import { formatISO, startOfDay } from 'date-fns'; // For daily reset
 
-const LEARNING_THRESHOLD_DAYS = 7; // Cards with interval > this are considered "learned" for deck stats
+const LEARNING_THRESHOLD_DAYS = 7; 
 
 export default function StudyView() {
   const { 
@@ -28,43 +30,64 @@ export default function StudyView() {
     resetDeckProgress,
     userSettings,
     updateUserSettings,
-    updateDeck,
-    getCardsByDeckId // Added to calculate deck-wide stats
+    updateDeck, // Used for daily reset and new card limit
+    getCardsByDeckId
   } = useApp();
   const { t } = useLanguage();
 
   const [currentCard, setCurrentCard] = useState<CardType | null>(null);
   const [isFlipped, setIsFlipped] = useState(false);
   const [studyQueue, setStudyQueue] = useState<CardType[]>([]);
-  const [newCardCount, setNewCardCount] = useState(0); // Session-related new cards
-  const [dueCardCount, setDueCardCount] = useState(0); // Session-related due cards
+  const [sessionNewCardCount, setSessionNewCardCount] = useState(0);
+  const [sessionDueCardCount, setSessionDueCardCount] = useState(0);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [newCardsPerDayInput, setNewCardsPerDayInput] = useState<string | number>('');
 
+
+  // Initial deck fetch, potentially stale for daily stats until effect below runs
   const deck = useMemo(() => selectedDeckId ? getDeckById(selectedDeckId) : null, [selectedDeckId, getDeckById]);
 
-  const initializeStudySession = useCallback(() => {
+  // Effect for daily reset of deck stats
+  useEffect(() => {
     if (deck && selectedDeckId) {
-      const { due, newCards } = getDueCardsForDeck(selectedDeckId);
+      const todayISO = formatISO(startOfDay(new Date()));
+      if (deck.lastSessionDate !== todayISO) {
+        updateDeck(deck.id, {
+          dailyNewCardsIntroduced: 0,
+          lastSessionDate: todayISO,
+        });
+        // The `deck` object used by `initializeStudySession` will be updated on the next render cycle
+      }
+      setNewCardsPerDayInput(deck.newCardsPerDay); // Sync input with current deck setting
+    }
+  }, [deck, selectedDeckId, updateDeck]);
+
+
+  const initializeStudySession = useCallback(() => {
+    if (deck && selectedDeckId) { // `deck` here will be the potentially updated one after daily reset
+      const { due, newCards: limitedNewCards } = getDueCardsForDeck(selectedDeckId);
       
-      let sessionCards = [...newCards, ...due];
+      let sessionCards = [...limitedNewCards, ...due];
       if (userSettings.shuffleStudyQueue) {
         sessionCards = shuffleArray(sessionCards);
       }
       
       setStudyQueue(sessionCards); 
-      setNewCardCount(newCards.length);
-      setDueCardCount(due.length);    
+      setSessionNewCardCount(limitedNewCards.length);
+      setSessionDueCardCount(due.length);    
       setIsFlipped(false); 
     } else {
       setStudyQueue([]);
-      setNewCardCount(0);
-      setDueCardCount(0);
+      setSessionNewCardCount(0);
+      setSessionDueCardCount(0);
     }
   }, [deck, selectedDeckId, getDueCardsForDeck, userSettings.shuffleStudyQueue]);
 
+  // Re-initialize session if deck (due to daily reset or settings change) or shuffle preference changes
   useEffect(() => {
     initializeStudySession();
   }, [initializeStudySession]);
+
 
   useEffect(() => {
     if (studyQueue.length > 0) {
@@ -77,25 +100,15 @@ export default function StudyView() {
 
   const handleGradeSelect = useCallback((grade: SRSGrade) => {
     if (currentCard) {
-      reviewCard(currentCard.id, grade);
+      reviewCard(currentCard.id, grade); // This might update deck.dailyNewCardsIntroduced
+      // The queue will update, and subsequent calls to getDueCardsForDeck will reflect the new counts.
       setStudyQueue(prev => {
           const newQueue = prev.slice(1);
-          if (newQueue.length > 0) {
-              setCurrentCard(newQueue[0]); 
-              setIsFlipped(false); 
-          } else {
-              setCurrentCard(null); 
-          }
-          // Update session counts after grading
-          if (selectedDeckId) {
-            const { due, newCards } = getDueCardsForDeck(selectedDeckId);
-            setNewCardCount(newCards.length);
-            setDueCardCount(due.length);
-          }
+          // Session counts will be re-evaluated by initializeStudySession in the next effect cycle if deck changed
           return newQueue;
       });
     }
-  }, [currentCard, reviewCard, selectedDeckId, getDueCardsForDeck]);
+  }, [currentCard, reviewCard]);
 
 
   const handleFlip = () => setIsFlipped(prev => !prev);
@@ -105,25 +118,16 @@ export default function StudyView() {
       if (!currentCard) return; 
 
       const isAnyModalOpen = showResetConfirm || document.querySelector('[role="dialog"], [role="alertdialog"]');
-      if (isAnyModalOpen && event.target !== document.body) return;
+      if (isAnyModalOpen && event.target !== document.body && !(event.target instanceof HTMLInputElement)) return; // Allow input in modals/settings
 
-      if (event.key === ' ') {
+      if (event.key === ' ' && !(event.target instanceof HTMLInputElement)) {
         event.preventDefault();
         handleFlip();
-      } else if (isFlipped) {
-        if (event.key === '1') {
-          event.preventDefault();
-          handleGradeSelect('again');
-        } else if (event.key === '2') {
-          event.preventDefault();
-          handleGradeSelect('hard');
-        } else if (event.key === '3') {
-          event.preventDefault();
-          handleGradeSelect('good');
-        } else if (event.key === '4') {
-          event.preventDefault();
-          handleGradeSelect('easy');
-        }
+      } else if (isFlipped && !(event.target instanceof HTMLInputElement)) {
+        if (event.key === '1') { event.preventDefault(); handleGradeSelect('again'); } 
+        else if (event.key === '2') { event.preventDefault(); handleGradeSelect('hard'); } 
+        else if (event.key === '3') { event.preventDefault(); handleGradeSelect('good'); } 
+        else if (event.key === '4') { event.preventDefault(); handleGradeSelect('easy'); }
       }
     };
 
@@ -137,7 +141,7 @@ export default function StudyView() {
   const handleResetProgress = () => {
     if (selectedDeckId) {
       resetDeckProgress(selectedDeckId);
-      initializeStudySession(); 
+      // initializeStudySession will be called due to deck state change
       setShowResetConfirm(false);
     }
   };
@@ -156,6 +160,16 @@ export default function StudyView() {
     updateUserSettings({ showStudyControlsTooltip: false });
   };
 
+  const handleNewCardsPerDayChange = (value: string) => {
+    setNewCardsPerDayInput(value);
+    if (deck) {
+      const numValue = parseInt(value, 10);
+      if (!isNaN(numValue) && numValue >= 0) {
+        updateDeck(deck.id, { newCardsPerDay: numValue });
+      }
+    }
+  };
+  
   const deckStats = useMemo(() => {
     if (!deck || !selectedDeckId) {
       return { underStudyCount: 0, learnedCount: 0, totalCount: 0 };
@@ -172,7 +186,7 @@ export default function StudyView() {
       }
     });
     return { underStudyCount: underStudy, learnedCount: learned, totalCount: allDeckCards.length };
-  }, [deck, selectedDeckId, getCardsByDeckId, studyQueue]); // Re-calculate if studyQueue changes to reflect graded cards moving categories
+  }, [deck, selectedDeckId, getCardsByDeckId]);
 
 
   if (!deck) {
@@ -202,7 +216,7 @@ export default function StudyView() {
               <Settings className="h-5 w-5" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
+          <DropdownMenuContent align="end" className="w-64">
             <DropdownMenuItem onClick={() => setShowResetConfirm(true)} className="cursor-pointer">
               <RotateCcw className="mr-2 h-4 w-4" /> {t('resetProgress')}
             </DropdownMenuItem>
@@ -230,6 +244,23 @@ export default function StudyView() {
                 />
               </div>
             </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel>{t('deckSettings')}</DropdownMenuLabel>
+            <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                <div className="flex flex-col space-y-1 w-full">
+                    <Label htmlFor="new-cards-per-day" className="flex items-center text-sm">
+                        <ListChecks className="mr-2 h-4 w-4" /> {t('newCardsPerDay')}
+                    </Label>
+                    <Input
+                        id="new-cards-per-day"
+                        type="number"
+                        min="0"
+                        value={newCardsPerDayInput}
+                        onChange={(e) => handleNewCardsPerDayChange(e.target.value)}
+                        className="h-8 text-sm"
+                    />
+                </div>
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -249,8 +280,9 @@ export default function StudyView() {
 
       <div className="w-full max-w-lg mb-6 text-sm">
         <div className="flex justify-around text-muted-foreground">
-          <span>{t('new')}: {newCardCount}</span>
-          <span>{t('due')}: {dueCardCount}</span>
+          <span>{t('new')}: {sessionNewCardCount}</span>
+          <span>{t('due')}: {sessionDueCardCount}</span>
+          <span>{t('dailyNewIntroduced')}: {deck.dailyNewCardsIntroduced}/{deck.newCardsPerDay}</span>
         </div>
         <hr className="my-2 border-border" />
         <div className="flex justify-around text-muted-foreground">
@@ -296,5 +328,3 @@ export default function StudyView() {
     </div>
   );
 }
-
-    

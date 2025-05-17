@@ -91,7 +91,8 @@
   "deckExportedSuccess": "Deck \"{{deckName}}\" exported successfully.",
   "deckUnderStudy": "Under Study",
   "deckLearned": "Learned",
-  "deckTotal": "Total"
+  "deckTotal": "Total",
+  "deckSettings": "Deck Settings",
+  "newCardsPerDay": "New Cards Per Day",
+  "dailyNewIntroduced": "Today's New"
 }
-
-    

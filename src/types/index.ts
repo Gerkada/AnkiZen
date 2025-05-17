@@ -22,7 +22,10 @@ export interface Card {
 export interface Deck {
   id: string;
   name: string;
-  defaultSwapFrontBack: boolean; // Added: default direction for this deck
+  defaultSwapFrontBack: boolean;
+  newCardsPerDay: number; // Max new cards to introduce per day
+  dailyNewCardsIntroduced: number; // How many new cards already introduced today for this deck
+  lastSessionDate: string; // ISO date string of the last day new cards were introduced
   createdAt: string; // ISO date string
   updatedAt: string; // ISO date string
 }
@@ -31,9 +34,8 @@ export interface UserSettings {
   language: Language;
   theme: Theme;
   lastStudiedDeckId?: string | null;
-  // swapFrontBack: boolean; // Removed: now per-deck
   showStudyControlsTooltip: boolean; 
-  shuffleStudyQueue: boolean; // Added for shuffling study queue
+  shuffleStudyQueue: boolean;
 }
 
 export type AppView = 'deck-list' | 'study' | 'edit-cards' | 'test';
