@@ -129,5 +129,16 @@
   "noReviewData": "No review data available yet. Start studying to see your activity!",
   "leechNotificationTitle": "Leech Card Alert",
   "leechNotificationMessage": "Card '{{cardFront}}' has been marked as a leech due to repeated incorrect answers. It will be shown less frequently.",
-  "leechIndicatorTooltip": "Leech Card (difficult)"
+  "leechIndicatorTooltip": "Leech Card (difficult)",
+  "helpTitle": "Help",
+  "helpDescription": "Learn about AnkiZen's features and how to use them.",
+  "helpGettingStartedTitle": "Getting Started",
+  "helpDeckManagementTitle": "Deck Management",
+  "helpStudyingCardsTitle": "Studying Cards",
+  "helpManagingCardsTitle": "Managing Cards (Edit View)",
+  "helpTestModeTitle": "Test Mode",
+  "helpStatisticsTitle": "Statistics",
+  "helpLeechesTitle": "Problem Cards (Leeches)",
+  "helpAppSettingsTitle": "App Settings",
+  "close": "Close"
 }

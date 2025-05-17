@@ -131,5 +131,16 @@
   "noReviewData": "Данных о повторениях пока нет. Начните учиться, чтобы увидеть свою активность!",
   "leechNotificationTitle": "Обнаружена сложная карточка",
   "leechNotificationMessage": "Карточка '{{cardFront}}' помечена как сложная из-за частых неправильных ответов. Она будет показываться реже.",
-  "leechIndicatorTooltip": "Сложная карточка"
+  "leechIndicatorTooltip": "Сложная карточка",
+  "helpTitle": "Помощь",
+  "helpDescription": "Узнайте о функциях AnkiZen и как ими пользоваться.",
+  "helpGettingStartedTitle": "Начало работы",
+  "helpDeckManagementTitle": "Управление колодами",
+  "helpStudyingCardsTitle": "Изучение карточек",
+  "helpManagingCardsTitle": "Управление карточками (Режим редактирования)",
+  "helpTestModeTitle": "Тестовый режим",
+  "helpStatisticsTitle": "Статистика",
+  "helpLeechesTitle": "Проблемные карточки (Пиявки)",
+  "helpAppSettingsTitle": "Настройки приложения",
+  "close": "Закрыть"
 }

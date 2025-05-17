@@ -131,5 +131,16 @@
   "noReviewData": "Даних про повторення поки що немає. Почніть вчитися, щоб побачити свою активність!",
   "leechNotificationTitle": "Виявлено складну картку",
   "leechNotificationMessage": "Картку '{{cardFront}}' позначено як складну через часті неправильні відповіді. Вона буде показуватися рідше.",
-  "leechIndicatorTooltip": "Складна картка"
+  "leechIndicatorTooltip": "Складна картка",
+  "helpTitle": "Допомога",
+  "helpDescription": "Дізнайтеся про функції AnkiZen та як ними користуватися.",
+  "helpGettingStartedTitle": "Початок роботи",
+  "helpDeckManagementTitle": "Керування колодами",
+  "helpStudyingCardsTitle": "Вивчення карток",
+  "helpManagingCardsTitle": "Керування картками (Режим редагування)",
+  "helpTestModeTitle": "Тестовий режим",
+  "helpStatisticsTitle": "Статистика",
+  "helpLeechesTitle": "Проблемні картки (П'явки)",
+  "helpAppSettingsTitle": "Налаштування додатку",
+  "close": "Закрити"
 }
