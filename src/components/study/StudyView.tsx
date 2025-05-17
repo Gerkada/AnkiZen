@@ -1,17 +1,20 @@
+
 "use client";
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import type { Card as CardType, SRSGrade } from '@/types';
 import { useApp } from '@/contexts/AppContext';
 import { useLanguage } from '@/contexts/LanguageProvider';
 import Flashcard from './Flashcard';
 import StudyControls from './StudyControls';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, RotateCcw, Repeat, Settings } from 'lucide-react';
+import { ArrowLeft, RotateCcw, Repeat, Settings, XCircle } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+
 
 export default function StudyView() {
   const { 
@@ -35,51 +38,107 @@ export default function StudyView() {
 
   const deck = useMemo(() => selectedDeckId ? getDeckById(selectedDeckId) : null, [selectedDeckId, getDeckById]);
 
-  useEffect(() => {
+  const initializeStudySession = useCallback(() => {
     if (selectedDeckId) {
       const { due, newCards } = getDueCardsForDeck(selectedDeckId);
-      setStudyQueue([...newCards, ...due]); // Prioritize new cards, then due cards
+      setStudyQueue([...newCards, ...due]); 
       setNewCardCount(newCards.length);
       setDueCardCount(due.length);
+      setIsFlipped(false); 
     } else {
       setStudyQueue([]);
       setNewCardCount(0);
       setDueCardCount(0);
     }
-  }, [selectedDeckId, getDueCardsForDeck, reviewCard]); // Re-fetch when reviewCard is called to update counts
+  }, [selectedDeckId, getDueCardsForDeck]);
+
+  useEffect(() => {
+    initializeStudySession();
+  }, [initializeStudySession]);
 
   useEffect(() => {
     if (studyQueue.length > 0) {
       setCurrentCard(studyQueue[0]);
-      setIsFlipped(false);
+      setIsFlipped(false); 
     } else {
       setCurrentCard(null);
     }
   }, [studyQueue]);
 
-  const handleGradeSelect = (grade: SRSGrade) => {
+  const handleGradeSelect = useCallback((grade: SRSGrade) => {
     if (currentCard) {
       reviewCard(currentCard.id, grade);
-      setStudyQueue(prev => prev.slice(1)); // Move to next card
+      // Advance the queue and update counts
+      setStudyQueue(prev => {
+          const newQueue = prev.slice(1);
+          if (newQueue.length > 0) {
+              setCurrentCard(newQueue[0]); // Set next card
+              setIsFlipped(false); // Ensure it's not flipped
+          } else {
+              setCurrentCard(null); // No more cards
+          }
+          // Update counts after processing this card
+          if (selectedDeckId) {
+            const { due, newCards } = getDueCardsForDeck(selectedDeckId);
+            setNewCardCount(newCards.length);
+            setDueCardCount(due.length);
+          }
+          return newQueue;
+      });
     }
-  };
+  }, [currentCard, reviewCard, selectedDeckId, getDueCardsForDeck]);
+
 
   const handleFlip = () => setIsFlipped(prev => !prev);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (!currentCard) return; 
+
+      const isAnyModalOpen = showResetConfirm || document.querySelector('[role="dialog"], [role="alertdialog"]');
+      if (isAnyModalOpen && event.target !== document.body) return; // Don't interfere with dialog inputs
+
+      if (event.key === ' ') {
+        event.preventDefault();
+        handleFlip();
+      } else if (isFlipped) {
+        if (event.key === '1') {
+          event.preventDefault();
+          handleGradeSelect('again');
+        } else if (event.key === '2') {
+          event.preventDefault();
+          handleGradeSelect('hard');
+        } else if (event.key === '3') {
+          event.preventDefault();
+          handleGradeSelect('good');
+        } else if (event.key === '4') {
+          event.preventDefault();
+          handleGradeSelect('easy');
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [currentCard, isFlipped, handleGradeSelect, showResetConfirm]);
+
 
   const handleResetProgress = () => {
     if (selectedDeckId) {
       resetDeckProgress(selectedDeckId);
-      // Re-initialize queue after reset
-      const { due, newCards } = getDueCardsForDeck(selectedDeckId);
-      setStudyQueue([...newCards, ...due]);
-      setNewCardCount(newCards.length);
-      setDueCardCount(due.length);
+      initializeStudySession(); 
       setShowResetConfirm(false);
     }
   };
 
   const toggleSwapFrontBack = () => {
     updateUserSettings({ swapFrontBack: !userSettings.swapFrontBack });
+  };
+  
+  const dismissTooltip = () => {
+    updateUserSettings({ showStudyControlsTooltip: false });
   };
 
   if (!deck) {
@@ -92,6 +151,9 @@ export default function StudyView() {
       </div>
     );
   }
+  
+  const showTooltip = typeof userSettings.showStudyControlsTooltip === 'boolean' ? userSettings.showStudyControlsTooltip : true;
+
 
   return (
     <div className="flex flex-col items-center p-4 md:p-6">
@@ -110,7 +172,7 @@ export default function StudyView() {
             <DropdownMenuItem onClick={() => setShowResetConfirm(true)} className="cursor-pointer">
               <RotateCcw className="mr-2 h-4 w-4" /> {t('resetProgress')}
             </DropdownMenuItem>
-            <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="cursor-pointer"> {/* Prevent closing */}
+            <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="cursor-pointer"> 
               <div className="flex items-center justify-between w-full">
                 <Label htmlFor="swap-front-back" className="flex items-center cursor-pointer">
                   <Repeat className="mr-2 h-4 w-4" /> {t('swapFrontBack')}
@@ -126,6 +188,19 @@ export default function StudyView() {
         </DropdownMenu>
       </div>
 
+      {showTooltip && (
+        <Alert className="mb-6 max-w-lg w-full relative">
+           <Button variant="ghost" size="icon" onClick={dismissTooltip} className="absolute top-2 right-2 h-6 w-6 p-0" aria-label={t('dismissTooltip')}>
+            <XCircle className="h-4 w-4" />
+          </Button>
+          <AlertTitle>{t('studyControlsTooltipTitle')}</AlertTitle>
+          <AlertDescription>
+            <p>{t('studyControlsTooltipFlip')}</p>
+            <p>{t('studyControlsTooltipGrade')}</p>
+          </AlertDescription>
+        </Alert>
+      )}
+
       <div className="flex space-x-4 mb-6 text-sm text-muted-foreground">
         <span>{t('new')}: {newCardCount}</span>
         <span>{t('due')}: {dueCardCount}</span>
@@ -133,7 +208,13 @@ export default function StudyView() {
 
       {currentCard ? (
         <>
-          <Flashcard card={currentCard} isFlipped={isFlipped} onFlip={handleFlip} showAnswerButton={!isFlipped} swapFrontBack={userSettings.swapFrontBack} />
+          <Flashcard 
+            card={currentCard} 
+            isFlipped={isFlipped} 
+            onFlip={handleFlip} 
+            showAnswerButton={!isFlipped} 
+            swapFrontBack={userSettings.swapFrontBack} 
+          />
           {isFlipped && <StudyControls onGradeSelect={handleGradeSelect} />}
         </>
       ) : (

@@ -31,6 +31,7 @@ export interface UserSettings {
   theme: Theme;
   lastStudiedDeckId?: string | null;
   swapFrontBack: boolean;
+  showStudyControlsTooltip: boolean; // Added for the new tooltip
 }
 
 export type AppView = 'deck-list' | 'study' | 'edit-cards';

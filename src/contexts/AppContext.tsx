@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { ReactNode } from 'react';
@@ -47,6 +48,7 @@ const initialUserSettings: UserSettings = {
   theme: 'light',
   lastStudiedDeckId: null,
   swapFrontBack: false,
+  showStudyControlsTooltip: true, // Default to show tooltip
 };
 
 const AppContext = createContext<AppContextState | undefined>(undefined);
@@ -63,7 +65,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // This effect runs once on mount to signify localStorage has been read.
     setIsLoading(false);
-  }, []);
+    // Ensure selectedDeckId is initialized from potentially updated userSettings
+    if (userSettings.lastStudiedDeckId && !selectedDeckId) {
+        setSelectedDeckIdInternal(userSettings.lastStudiedDeckId);
+    }
+     // Ensure showStudyControlsTooltip is initialized if not present in localStorage
+    if (typeof userSettings.showStudyControlsTooltip === 'undefined') {
+      setUserSettingsState(prev => ({...prev, showStudyControlsTooltip: true}));
+    }
+  }, [userSettings, selectedDeckId, setUserSettingsState]);
   
   const setCurrentView = useCallback((view: AppView) => {
     setCurrentViewInternal(view);

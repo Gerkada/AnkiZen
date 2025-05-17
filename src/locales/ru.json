@@ -54,5 +54,10 @@
   "deckCreatedWithCards": "Колода \"{{deckName}}\" создана с {{count}} карточками.",
   "deckCreatedNoValidCards": "Колода \"{{deckName}}\" создана. В файле не найдено подходящих карточек.",
   "searchDecksPlaceholder": "Искать колоды...",
-  "noDecksMatchSearch": "Нет колод, соответствующих вашему поиску."
+  "noDecksMatchSearch": "Нет колод, соответствующих вашему поиску.",
+  "studyControlsTooltipTitle": "Управление изучением",
+  "studyControlsTooltipFlip": "Нажмите на карточку или Space, чтобы перевернуть.",
+  "studyControlsTooltipGrade": "Используйте клавиши 1 (Снова), 2 (Трудно), 3 (Хорошо), 4 (Легко) для оценки.",
+  "dismissTooltip": "Закрыть подсказку",
+  "actions": "Действия"
 }

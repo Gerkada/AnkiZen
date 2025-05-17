@@ -54,5 +54,10 @@
   "deckCreatedWithCards": "Колоду \"{{deckName}}\" створено з {{count}} картками.",
   "deckCreatedNoValidCards": "Колоду \"{{deckName}}\" створено. У файлі не знайдено дійсних карток.",
   "searchDecksPlaceholder": "Шукати колоди...",
-  "noDecksMatchSearch": "Немає колод, що відповідають вашому пошуку."
+  "noDecksMatchSearch": "Немає колод, що відповідають вашому пошуку.",
+  "studyControlsTooltipTitle": "Керування вивченням",
+  "studyControlsTooltipFlip": "Натисніть картку або Space, щоб перевернути.",
+  "studyControlsTooltipGrade": "Використовуйте клавіші 1 (Знову), 2 (Важко), 3 (Добре), 4 (Легко) для оцінки.",
+  "dismissTooltip": "Закрити підказку",
+  "actions": "Дії"
 }

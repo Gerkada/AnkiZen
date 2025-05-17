@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { Card, UserSettings } from '@/types';
@@ -22,7 +23,10 @@ export default function Flashcard({ card, isFlipped, onFlip, showAnswerButton = 
 
 
   return (
-    <div className={`flashcard-container w-full max-w-lg h-80 rounded-lg ${isFlipped ? 'flipped' : ''}`} onClick={showAnswerButton ? undefined : onFlip}>
+    <div 
+      className={`flashcard-container w-full max-w-lg h-80 rounded-lg cursor-pointer ${isFlipped ? 'flipped' : ''}`} 
+      onClick={onFlip} // Card itself is clickable to flip
+    >
       <div className="flashcard-inner">
         <div className="flashcard-front">
           <p className="text-3xl font-semibold">{frontContent}</p>
@@ -33,7 +37,8 @@ export default function Flashcard({ card, isFlipped, onFlip, showAnswerButton = 
         </div>
       </div>
       {showAnswerButton && !isFlipped && (
-        <Button onClick={onFlip} className="mt-4 w-full">
+        <Button onClick={(e) => { e.stopPropagation(); onFlip(); }} className="mt-4 w-full"> 
+          {/* Stop propagation to prevent double flip if button is part of the clickable area */}
           {t('showAnswer')}
         </Button>
       )}

@@ -54,5 +54,10 @@
   "deckCreatedWithCards": "Deck \"{{deckName}}\" created with {{count}} cards.",
   "deckCreatedNoValidCards": "Deck \"{{deckName}}\" created. No valid cards found in file.",
   "searchDecksPlaceholder": "Search decks...",
-  "noDecksMatchSearch": "No decks match your search."
+  "noDecksMatchSearch": "No decks match your search.",
+  "studyControlsTooltipTitle": "Study Controls",
+  "studyControlsTooltipFlip": "Click card or press Space to flip.",
+  "studyControlsTooltipGrade": "Use keys 1 (Again), 2 (Hard), 3 (Good), 4 (Easy) to grade.",
+  "dismissTooltip": "Dismiss tooltip",
+  "actions": "Actions"
 }
