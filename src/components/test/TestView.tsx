@@ -26,6 +26,8 @@ function shuffleArray<T>(array: T[]): T[] {
   return newArray;
 }
 
+const MIN_CARDS_FOR_TEST = 4;
+
 export default function TestView() {
   const { selectedDeckId, getDeckById, getCardsByDeckId, setCurrentView, userSettings } = useApp();
   const { t } = useLanguage();
@@ -41,10 +43,40 @@ export default function TestView() {
   const [isTestOver, setIsTestOver] = useState(false);
 
   const deck = useMemo(() => selectedDeckId ? getDeckById(selectedDeckId) : null, [selectedDeckId, getDeckById]);
-  const MIN_CARDS_FOR_TEST = 4;
+
+  // Effect 1: Initialize/reset deck and basic test state when selectedDeckId changes
+  useEffect(() => {
+    if (selectedDeckId) {
+      const cardsForDeck = getCardsByDeckId(selectedDeckId);
+      setDeckCards(cardsForDeck);
+      // Reset all test-specific state for the new deck
+      setAskedCardIds([]);
+      setCorrectCount(0);
+      setIncorrectCount(0);
+      setIsTestOver(false);
+      setQuestionCard(null); 
+      setOptions([]);        
+      setFeedback(null);
+      setIsAnswered(false);
+    } else {
+      // Clear if no deck is selected
+      setDeckCards([]);
+      setAskedCardIds([]);
+      setCorrectCount(0);
+      setIncorrectCount(0);
+      setIsTestOver(true); 
+      setQuestionCard(null);
+      setOptions([]);
+      setFeedback(null);
+      setIsAnswered(false);
+    }
+  }, [selectedDeckId, getCardsByDeckId]);
 
   const loadNextQuestion = useCallback(() => {
-    if (!deck) return;
+    if (!deck || deckCards.length < MIN_CARDS_FOR_TEST) {
+      setIsTestOver(true); // Not enough cards in general or from the start
+      return;
+    }
 
     const availableCards = deckCards.filter(card => !askedCardIds.includes(card.id));
 
@@ -61,52 +93,55 @@ export default function TestView() {
 
     const correctAnswer: TestOption = {
       cardId: randomQuestionCard.id,
-      text: randomQuestionCard.translation,
+      text: userSettings.swapFrontBack ? randomQuestionCard.front : randomQuestionCard.translation,
       isCorrect: true,
     };
 
-    // Get up to 3 incorrect options from other cards' translations
     const incorrectOptionsPool = deckCards.filter(card => card.id !== randomQuestionCard.id)
-                                         .map(card => card.translation)
-                                         // Ensure incorrect options are distinct from correct answer and each other
-                                         .filter((translation, index, self) => 
-                                             translation !== correctAnswer.text && self.indexOf(translation) === index);
+                                         .map(card => userSettings.swapFrontBack ? card.front : card.translation)
+                                         .filter((text, index, self) => 
+                                             text !== correctAnswer.text && self.indexOf(text) === index);
     
     const shuffledIncorrectPool = shuffleArray(incorrectOptionsPool);
-    const incorrectAnswers: TestOption[] = shuffledIncorrectPool.slice(0, 3).map(text => ({
-      cardId: `incorrect-${Math.random().toString(36).substring(7)}`, // dummy id for incorrect options
+    const incorrectAnswers: TestOption[] = shuffledIncorrectPool.slice(0, MIN_CARDS_FOR_TEST - 1).map(text => ({
+      cardId: `incorrect-${Math.random().toString(36).substring(7)}`, 
       text: text,
       isCorrect: false,
     }));
     
-    // Ensure we have 4 options if possible, otherwise add placeholders or handle
-    // For now, this might result in fewer than 4 if not enough unique incorrect translations
     let currentOptions = shuffleArray([correctAnswer, ...incorrectAnswers]);
     
-    // If we don't have 4 options (e.g. small deck with non-unique translations)
-    // we might need to either show fewer, or be more creative.
-    // For simplicity, this demo will proceed if at least correctAnswer + 1 incorrect is available.
-    // Ideally, we ensure 3 incorrect options are distinctly different.
-    // The logic above tries to make them distinct and different from the correct one.
-
-    setOptions(currentOptions.slice(0, MIN_CARDS_FOR_TEST)); // Ensure at most 4 options are used
-    setIsAnswered(false);
-    setFeedback(null);
-  }, [deck, deckCards, askedCardIds]);
-
-  useEffect(() => {
-    if (selectedDeckId) {
-      const cards = getCardsByDeckId(selectedDeckId);
-      setDeckCards(cards);
-      setAskedCardIds([]);
-      setCorrectCount(0);
-      setIncorrectCount(0);
-      setIsTestOver(false);
-      if (cards.length >= MIN_CARDS_FOR_TEST) {
-        loadNextQuestion();
+    // Ensure we have enough options, if not, it might mean very small deck or identical translations
+    while (currentOptions.length < MIN_CARDS_FOR_TEST && deckCards.length >= MIN_CARDS_FOR_TEST) {
+        // This case is less likely if MIN_CARDS_FOR_TEST is reasonably small and cards are somewhat distinct
+        // Add placeholder or duplicate incorrect if absolutely necessary and allowed by test design
+        // For now, we assume distinct enough options can usually be found from MIN_CARDS_FOR_TEST cards
+        // Or that the test should not proceed if not enough distinct options.
+        // The slice(0, MIN_CARDS_FOR_TEST) below handles if too many were generated by chance.
+        // If too few distinct options, this logic will need more robust handling for edge cases.
+        // For this example, we'll proceed, and it might show fewer than 4 options if not enough distinct ones.
+        // To strictly enforce 4 options, one might need to generate dummy incorrect answers or prevent test.
+      const dummyOptionText = t('loadingTest'); // Or some generic non-answer
+      if (!currentOptions.find(opt => opt.text === dummyOptionText)) {
+        currentOptions.push({ cardId: `dummy-${currentOptions.length}`, text: `${dummyOptionText} ${currentOptions.length}`, isCorrect: false});
+      } else {
+        break; // Avoid infinite loop if cannot create more distinct dummies
       }
     }
-  }, [selectedDeckId, getCardsByDeckId, loadNextQuestion]);
+
+
+    setOptions(currentOptions.slice(0, MIN_CARDS_FOR_TEST)); 
+    setIsAnswered(false);
+    setFeedback(null);
+  }, [deck, deckCards, askedCardIds, userSettings.swapFrontBack, t]);
+
+
+  // Effect 2: Load the first question once deckCards is ready for a new test.
+  useEffect(() => {
+    if (deckCards.length > 0 && deckCards.length >= MIN_CARDS_FOR_TEST && !isTestOver && !questionCard && askedCardIds.length === 0) {
+      loadNextQuestion();
+    }
+  }, [deckCards, isTestOver, questionCard, askedCardIds, loadNextQuestion]);
 
 
   const handleAnswer = (option: TestOption) => {
@@ -123,13 +158,13 @@ export default function TestView() {
 
     setTimeout(() => {
       loadNextQuestion();
-    }, 1500); // Wait 1.5 seconds before loading next question
+    }, 1500); 
   };
 
   if (!deck) {
     return (
       <div className="text-center py-10">
-        <p>{t('selectDeckToStudy')}</p> {/* Re-use string or make specific */}
+        <p>{t('selectDeckToStudy')}</p> 
         <Button onClick={() => setCurrentView('deck-list')} className="mt-4">
           <ArrowLeft className="mr-2 h-4 w-4" /> {t('decks')}
         </Button>
@@ -137,7 +172,7 @@ export default function TestView() {
     );
   }
 
-  if (deckCards.length < MIN_CARDS_FOR_TEST) {
+  if (deckCards.length < MIN_CARDS_FOR_TEST && !isTestOver) { // check !isTestOver to avoid showing this after test completion
     return (
       <div className="text-center py-10 space-y-4">
          <Alert variant="destructive">
@@ -165,11 +200,14 @@ export default function TestView() {
           </CardContent>
           <CardFooter className="flex flex-col gap-2">
             <Button onClick={() => {
+              // Reset state for a new test with the same deck
               setAskedCardIds([]);
               setCorrectCount(0);
               setIncorrectCount(0);
               setIsTestOver(false);
-              loadNextQuestion();
+              setQuestionCard(null); // Important to allow Effect 2 to trigger loadNextQuestion
+              setOptions([]);
+              // deckCards is already set, Effect 2 should pick up from here
             }} className="w-full">{t('restartTest')}</Button>
             <Button variant="outline" onClick={() => setCurrentView('deck-list')} className="w-full">
               {t('decks')}
@@ -194,14 +232,14 @@ export default function TestView() {
       {questionCard ? (
         <Card className="w-full max-w-xl">
           <CardHeader>
-            <CardTitle className="text-center text-3xl py-8">
+            <CardTitle className="text-center text-3xl py-8 min-h-[10rem] flex items-center justify-center">
               {userSettings.swapFrontBack ? questionCard.translation : questionCard.front}
             </CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {options.map((option) => (
+            {options.map((option, index) => (
               <Button
-                key={option.cardId + option.text} // Make key more unique if texts can repeat
+                key={option.cardId + option.text + index} 
                 variant="outline"
                 className={`p-6 text-lg h-auto whitespace-normal break-words
                   ${isAnswered && feedback?.optionText === option.text ? (feedback.correct ? 'bg-green-500 hover:bg-green-600 text-white' : 'bg-red-500 hover:bg-red-600 text-white') : ''}
@@ -220,7 +258,9 @@ export default function TestView() {
           </CardFooter>
         </Card>
       ) : (
-        <p>{isTestOver ? t('testCompleteTitle') : t('loadingTest')}</p>
+         deckCards.length >= MIN_CARDS_FOR_TEST && <p>{t('loadingTest')}</p>
+        // If not loading test and not enough cards, the specific message is shown above.
+        // If isTestOver, the "Test Complete" view is shown.
       )}
     </div>
   );
