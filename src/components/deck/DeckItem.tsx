@@ -10,7 +10,7 @@ import { Edit3, Trash2, MoreVertical, BookOpen, Edit } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { useLanguage } from '@/contexts/LanguageProvider';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import RenameDeckDialog from './RenameDeckDialog'; // Placeholder for rename dialog
+import RenameDeckDialog from './RenameDeckDialog';
 
 interface DeckItemProps {
   deck: Deck;
@@ -40,17 +40,22 @@ export default function DeckItem({ deck, cardCount }: DeckItemProps) {
 
   return (
     <>
-      <Card className="flex flex-col md:min-w-96">
+      <Card className="group flex flex-col md:min-w-96 cursor-pointer transition-all" tabIndex={0}>
         <CardHeader>
           <div className="flex justify-between items-start">
             <CardTitle className="text-xl font-semibold">{deck.name}</CardTitle>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-8 w-8 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-150"
+                  onClick={(e) => e.stopPropagation()} // Prevent card focus when clicking menu
+                >
                   <MoreVertical className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
+              <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
                 <DropdownMenuItem onClick={() => setIsRenameDialogOpen(true)} className="cursor-pointer">
                   <Edit3 className="mr-2 h-4 w-4" />
                   {t('renameDeck')}
@@ -67,7 +72,7 @@ export default function DeckItem({ deck, cardCount }: DeckItemProps) {
         <CardContent className="flex-grow">
           {/* Future: could show some stats like due cards */}
         </CardContent>
-        <CardFooter className="flex flex-wrap justify-end gap-2">
+        <CardFooter className="flex flex-wrap justify-end gap-2 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-150">
           <Button variant="outline" onClick={handleEditCards}>
             <Edit className="mr-2 h-4 w-4" />
             {t('manageCards')}
