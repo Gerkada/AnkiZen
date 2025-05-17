@@ -88,5 +88,10 @@
   "importToDeckNoNewCards": "No new cards were imported to \"{{deckName}}\". All cards in the file were duplicates or the file was empty/invalid.",
   "fileReadError": "Could not read the selected file.",
   "deckDeletedMsg": "Deck \"{{deckName}}\" deleted.",
-  "deckExportedSuccess": "Deck \"{{deckName}}\" exported successfully."
+  "deckExportedSuccess": "Deck \"{{deckName}}\" exported successfully.",
+  "deckUnderStudy": "Under Study",
+  "deckLearned": "Learned",
+  "deckTotal": "Total"
 }
+
+    

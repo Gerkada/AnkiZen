@@ -16,6 +16,8 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { shuffleArray } from '@/lib/utils';
 
+const LEARNING_THRESHOLD_DAYS = 7; // Cards with interval > this are considered "learned" for deck stats
+
 export default function StudyView() {
   const { 
     selectedDeckId, 
@@ -26,21 +28,22 @@ export default function StudyView() {
     resetDeckProgress,
     userSettings,
     updateUserSettings,
-    updateDeck // Added for updating deck settings
+    updateDeck,
+    getCardsByDeckId // Added to calculate deck-wide stats
   } = useApp();
   const { t } = useLanguage();
 
   const [currentCard, setCurrentCard] = useState<CardType | null>(null);
   const [isFlipped, setIsFlipped] = useState(false);
   const [studyQueue, setStudyQueue] = useState<CardType[]>([]);
-  const [newCardCount, setNewCardCount] = useState(0);
-  const [dueCardCount, setDueCardCount] = useState(0);
+  const [newCardCount, setNewCardCount] = useState(0); // Session-related new cards
+  const [dueCardCount, setDueCardCount] = useState(0); // Session-related due cards
   const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   const deck = useMemo(() => selectedDeckId ? getDeckById(selectedDeckId) : null, [selectedDeckId, getDeckById]);
 
   const initializeStudySession = useCallback(() => {
-    if (deck && selectedDeckId) { // Ensure deck is available
+    if (deck && selectedDeckId) {
       const { due, newCards } = getDueCardsForDeck(selectedDeckId);
       
       let sessionCards = [...newCards, ...due];
@@ -83,6 +86,7 @@ export default function StudyView() {
           } else {
               setCurrentCard(null); 
           }
+          // Update session counts after grading
           if (selectedDeckId) {
             const { due, newCards } = getDueCardsForDeck(selectedDeckId);
             setNewCardCount(newCards.length);
@@ -152,6 +156,25 @@ export default function StudyView() {
     updateUserSettings({ showStudyControlsTooltip: false });
   };
 
+  const deckStats = useMemo(() => {
+    if (!deck || !selectedDeckId) {
+      return { underStudyCount: 0, learnedCount: 0, totalCount: 0 };
+    }
+    const allDeckCards = getCardsByDeckId(selectedDeckId);
+    let underStudy = 0;
+    let learned = 0;
+
+    allDeckCards.forEach(card => {
+      if (card.repetitions === 0 || (card.repetitions > 0 && card.interval <= LEARNING_THRESHOLD_DAYS)) {
+        underStudy++;
+      } else if (card.repetitions > 0 && card.interval > LEARNING_THRESHOLD_DAYS) {
+        learned++;
+      }
+    });
+    return { underStudyCount: underStudy, learnedCount: learned, totalCount: allDeckCards.length };
+  }, [deck, selectedDeckId, getCardsByDeckId, studyQueue]); // Re-calculate if studyQueue changes to reflect graded cards moving categories
+
+
   if (!deck) {
     return (
       <div className="text-center py-10">
@@ -190,8 +213,8 @@ export default function StudyView() {
                 </Label>
                 <Switch
                   id="swap-front-back"
-                  checked={deck.defaultSwapFrontBack} // Use deck setting
-                  onCheckedChange={handleToggleDeckSwapFrontBack} // Update deck setting
+                  checked={deck.defaultSwapFrontBack}
+                  onCheckedChange={handleToggleDeckSwapFrontBack}
                 />
               </div>
             </DropdownMenuItem>
@@ -224,9 +247,17 @@ export default function StudyView() {
         </Alert>
       )}
 
-      <div className="flex space-x-4 mb-6 text-sm text-muted-foreground">
-        <span>{t('new')}: {newCardCount}</span>
-        <span>{t('due')}: {dueCardCount}</span>
+      <div className="w-full max-w-lg mb-6 text-sm">
+        <div className="flex justify-around text-muted-foreground">
+          <span>{t('new')}: {newCardCount}</span>
+          <span>{t('due')}: {dueCardCount}</span>
+        </div>
+        <hr className="my-2 border-border" />
+        <div className="flex justify-around text-muted-foreground">
+          <span>{t('deckUnderStudy')}: {deckStats.underStudyCount}</span>
+          <span>{t('deckLearned')}: {deckStats.learnedCount}</span>
+          <span>{t('deckTotal')}: {deckStats.totalCount}</span>
+        </div>
       </div>
 
       {currentCard ? (
@@ -236,7 +267,7 @@ export default function StudyView() {
             isFlipped={isFlipped} 
             onFlip={handleFlip} 
             showAnswerButton={!isFlipped} 
-            swapFrontBack={deck.defaultSwapFrontBack} // Use deck setting
+            swapFrontBack={deck.defaultSwapFrontBack}
           />
           {isFlipped && <StudyControls onGradeSelect={handleGradeSelect} />}
         </>
@@ -265,3 +296,5 @@ export default function StudyView() {
     </div>
   );
 }
+
+    

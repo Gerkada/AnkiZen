@@ -88,5 +88,10 @@
   "importToDeckNoNewCards": "Новые карточки не были импортированы в колоду \"{{deckName}}\". Все карточки в файле были дубликатами или файл был пуст/неверен.",
   "fileReadError": "Не удалось прочитать выбранный файл.",
   "deckDeletedMsg": "Колода \"{{deckName}}\" удалена.",
-  "deckExportedSuccess": "Колода \"{{deckName}}\" успешно экспортирована."
+  "deckExportedSuccess": "Колода \"{{deckName}}\" успешно экспортирована.",
+  "deckUnderStudy": "В изучении",
+  "deckLearned": "Выучено",
+  "deckTotal": "Всего"
 }
+
+    
