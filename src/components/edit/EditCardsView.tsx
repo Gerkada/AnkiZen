@@ -1,16 +1,18 @@
 
 "use client";
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import type { Card as CardType } from '@/types';
 import { useApp } from '@/contexts/AppContext';
 import { useLanguage } from '@/contexts/LanguageProvider';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, PlusCircle, Edit2, Trash2 } from 'lucide-react';
+import { ArrowLeft, PlusCircle, Edit2, Trash2, Bug } from 'lucide-react'; // Added Bug icon
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import CardEditor from './CardEditor';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'; // Added Tooltip components
+
 
 export default function EditCardsView() {
   const { 
@@ -22,15 +24,14 @@ export default function EditCardsView() {
   } = useApp();
   const { t } = useLanguage();
 
-  const [editingCard, setEditingCard] = useState<CardType | null>(null); // For editing existing card
-  const [isAddingCard, setIsAddingCard] = useState(false); // For adding new card
+  const [editingCard, setEditingCard] = useState<CardType | null>(null); 
+  const [isAddingCard, setIsAddingCard] = useState(false); 
   const [cardToDelete, setCardToDelete] = useState<CardType | null>(null);
 
 
   const deck = useMemo(() => selectedDeckId ? getDeckById(selectedDeckId) : null, [selectedDeckId, getDeckById]);
   const cardsInDeck = useMemo(() => selectedDeckId ? getCardsByDeckId(selectedDeckId) : [], [selectedDeckId, getCardsByDeckId]);
   
-  // Sort cards by creation date for consistent display
   const sortedCards = useMemo(() => {
     return [...cardsInDeck].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
   }, [cardsInDeck]);
@@ -39,7 +40,7 @@ export default function EditCardsView() {
   if (!deck) {
     return (
       <div className="text-center py-10">
-        <p>{t('selectDeckToStudy')}</p> {/* Re-use string, or make specific */}
+        <p>{t('selectDeckToStudy')}</p> 
         <Button onClick={() => setCurrentView('deck-list')} className="mt-4">
           <ArrowLeft className="mr-2 h-4 w-4" /> {t('decks')}
         </Button>
@@ -49,11 +50,11 @@ export default function EditCardsView() {
 
   const handleEdit = (card: CardType) => {
     setEditingCard(card);
-    setIsAddingCard(false); // Ensure not in add mode
+    setIsAddingCard(false); 
   };
 
   const handleAddNew = () => {
-    setEditingCard(null); // Clear any existing editing card
+    setEditingCard(null); 
     setIsAddingCard(true);
   };
   
@@ -119,7 +120,21 @@ export default function EditCardsView() {
               <TableBody>
                 {sortedCards.map((card) => (
                   <TableRow key={card.id}>
-                    <TableCell className="font-medium truncate max-w-xs">{card.front}</TableCell>
+                    <TableCell className="font-medium truncate max-w-xs flex items-center">
+                      {card.isLeech && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Bug className="h-4 w-4 mr-2 text-destructive flex-shrink-0" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>{t('leechIndicatorTooltip')}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+                      <span className="truncate">{card.front}</span>
+                    </TableCell>
                     <TableCell className="truncate max-w-xs">{card.reading || '-'}</TableCell>
                     <TableCell className="truncate max-w-xs">{card.translation}</TableCell>
                     <TableCell className="text-right">

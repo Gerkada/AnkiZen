@@ -126,7 +126,8 @@
   "daily": "Daily",
   "weekly": "Weekly",
   "monthly": "Monthly",
-  "noReviewData": "No review data available yet. Start studying to see your activity!"
+  "noReviewData": "No review data available yet. Start studying to see your activity!",
+  "leechNotificationTitle": "Leech Card Alert",
+  "leechNotificationMessage": "Card '{{cardFront}}' has been marked as a leech due to repeated incorrect answers. It will be shown less frequently.",
+  "leechIndicatorTooltip": "Leech Card (difficult)"
 }
-
-    

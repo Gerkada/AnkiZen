@@ -1,3 +1,4 @@
+
 import type { Card, SRSGrade } from '@/types';
 import { addDays, formatISO, startOfDay } from 'date-fns';
 
@@ -23,25 +24,24 @@ export function calculateNextReview(card: Card, grade: SRSGrade): Partial<Card> 
       else if (grade === 'easy') newInterval = 5;
     } else if (newRepetitions === 2) {
       // Second successful repetition
-      if (grade === 'hard') newInterval = Math.max(1, Math.ceil(card.interval * 0.8)); // Could be same as card.interval or slightly less
-      else if (grade === 'good') newInterval = Math.ceil(card.interval * newEaseFactor * 0.8); // Shorter than perfect recall
-      else if (grade === 'easy') newInterval = Math.ceil(card.interval * newEaseFactor * 1.2); // Longer than perfect recall
+      if (grade === 'hard') newInterval = Math.max(1, Math.ceil(card.interval * 0.8)); 
+      else if (grade === 'good') newInterval = Math.ceil(card.interval * newEaseFactor * 0.8); 
+      else if (grade === 'easy') newInterval = Math.ceil(card.interval * newEaseFactor * 1.2); 
       newInterval = Math.max(1, newInterval); 
     } else {
       // Subsequent repetitions
       newInterval = Math.ceil(card.interval * newEaseFactor);
       if (grade === 'hard') {
-        newInterval = Math.max(1, Math.ceil(card.interval * 1.2)); // SM2-like behavior for hard
+        newInterval = Math.max(1, Math.ceil(card.interval * 1.2)); 
         newEaseFactor = Math.max(MIN_EASE_FACTOR, newEaseFactor - 0.15);
       } else if (grade === 'easy') {
         newEaseFactor = newEaseFactor + 0.15;
-         newInterval = Math.ceil(card.interval * newEaseFactor * 1.3); // SM2-like behavior for easy
+         newInterval = Math.ceil(card.interval * newEaseFactor * 1.3); 
       }
        newInterval = Math.max(1, newInterval); 
     }
   }
   
-  // Ensure interval is at least 1 day if not 'again' for an already learned card
   if (grade !== 'again' && card.repetitions > 0) {
     newInterval = Math.max(1, newInterval);
   }
@@ -70,6 +70,9 @@ export function createNewCard(deckId: string, front: string, reading: string, tr
     interval: 0,
     easeFactor: DEFAULT_EASE_FACTOR,
     repetitions: 0,
+    againCount: 0,
+    consecutiveAgainCount: 0,
+    isLeech: false,
     createdAt: now,
     updatedAt: now,
   };

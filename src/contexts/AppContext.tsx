@@ -6,7 +6,9 @@ import { createContext, useContext, useState, useCallback, useEffect, useMemo } 
 import type { Deck, Card, UserSettings, AppView, SRSGrade, ReviewLog } from '@/types';
 import useLocalStorage from '@/hooks/useLocalStorage';
 import { calculateNextReview, createNewCard } from '@/lib/srs';
-import { formatISO, parseISO, isBefore, startOfDay } from 'date-fns';
+import { formatISO, parseISO, isBefore, startOfDay, addDays } from 'date-fns';
+import { useToast } from '@/hooks/use-toast';
+import { getTranslator } from '@/lib/i18n'; // For toast translations
 
 interface ParsedCardData {
   front: string;
@@ -18,6 +20,14 @@ interface ImportResult {
   newCount: number;
   skippedCount: number;
 }
+
+// Leech thresholds
+const LEECH_CONSECUTIVE_AGAIN_THRESHOLD = 4;
+const LEECH_TOTAL_AGAIN_THRESHOLD = 8;
+const LEECH_SUSPEND_INTERVAL_DAYS = 180; // Suspend for ~6 months
+const LEECH_INTERVAL_MATURITY_THRESHOLD = 21; // Don't mark as leech on total_again if already interval > 21 days
+const LEECH_MIN_EASE_FACTOR = 1.3;
+
 
 interface AppContextState {
   // Data
@@ -75,13 +85,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [currentView, setCurrentViewInternal] = useState<AppView>('deck-list');
   const [selectedDeckId, setSelectedDeckIdInternal] = useState<string | null>(userSettings.lastStudiedDeckId || null);
   const [isLoading, setIsLoading] = useState(true); 
+  const { toast } = useToast();
+  const t = getTranslator(userSettings.language);
+
 
   useEffect(() => {
     setIsLoading(false);
     if (userSettings.lastStudiedDeckId && !selectedDeckId) {
         setSelectedDeckIdInternal(userSettings.lastStudiedDeckId);
     }
-    // Ensure all user settings have defaults if loaded from older localStorage
     let updatedUserSettings = false;
     const tempUserSettings = {...userSettings};
     if (typeof tempUserSettings.showStudyControlsTooltip === 'undefined') {
@@ -96,33 +108,57 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setUserSettingsState(tempUserSettings);
     }
 
-    // Ensure all decks have new properties with defaults
-    let updatedDecks = false;
+    let updatedDecksFlag = false;
     const tempDecks = decks.map(deck => {
       const newDeckProps: Partial<Deck> = {};
+      let deckNeedsUpdate = false;
       if (typeof deck.defaultSwapFrontBack === 'undefined') {
         newDeckProps.defaultSwapFrontBack = false;
-        updatedDecks = true;
+        deckNeedsUpdate = true;
       }
       if (typeof deck.newCardsPerDay === 'undefined') {
-        newDeckProps.newCardsPerDay = 20; // Default new cards per day
-        updatedDecks = true;
+        newDeckProps.newCardsPerDay = 20;
+        deckNeedsUpdate = true;
       }
       if (typeof deck.dailyNewCardsIntroduced === 'undefined') {
         newDeckProps.dailyNewCardsIntroduced = 0;
-        updatedDecks = true;
+        deckNeedsUpdate = true;
       }
       if (typeof deck.lastSessionDate === 'undefined') {
-        newDeckProps.lastSessionDate = formatISO(new Date(0)); // A very old date
-        updatedDecks = true;
+        newDeckProps.lastSessionDate = formatISO(new Date(0));
+        deckNeedsUpdate = true;
       }
-      return updatedDecks ? { ...deck, ...newDeckProps } : deck;
+      if (deckNeedsUpdate) updatedDecksFlag = true;
+      return deckNeedsUpdate ? { ...deck, ...newDeckProps } : deck;
     });
-    if (updatedDecks) {
+    if (updatedDecksFlag) {
       setDecks(tempDecks);
     }
 
-  }, [userSettings, selectedDeckId, setUserSettingsState, decks, setDecks]);
+    let updatedCardsFlag = false;
+    const tempCards = cards.map(card => {
+        const newCardProps: Partial<Card> = {};
+        let cardNeedsUpdate = false;
+        if (typeof card.againCount === 'undefined') {
+            newCardProps.againCount = 0;
+            cardNeedsUpdate = true;
+        }
+        if (typeof card.consecutiveAgainCount === 'undefined') {
+            newCardProps.consecutiveAgainCount = 0;
+            cardNeedsUpdate = true;
+        }
+        if (typeof card.isLeech === 'undefined') {
+            newCardProps.isLeech = false;
+            cardNeedsUpdate = true;
+        }
+        if (cardNeedsUpdate) updatedCardsFlag = true;
+        return cardNeedsUpdate ? { ...card, ...newCardProps } : card;
+    });
+    if(updatedCardsFlag) {
+        setCards(tempCards);
+    }
+
+  }, [userSettings, selectedDeckId, setUserSettingsState, decks, setDecks, cards, setCards]);
   
   const setCurrentView = useCallback((view: AppView) => {
     setCurrentViewInternal(view);
@@ -144,9 +180,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       id: crypto.randomUUID(), 
       name, 
       defaultSwapFrontBack: false,
-      newCardsPerDay: 20, // Default
+      newCardsPerDay: 20, 
       dailyNewCardsIntroduced: 0,
-      lastSessionDate: formatISO(new Date(0)), // Far past date
+      lastSessionDate: formatISO(new Date(0)), 
       createdAt: now, 
       updatedAt: now 
     };
@@ -170,7 +206,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const deleteDeck = useCallback((deckId: string) => {
     setDecks(prev => prev.filter(d => d.id !== deckId));
     setCards(prev => prev.filter(c => c.deckId !== deckId));
-    setReviewLogs(prev => prev.filter(log => log.deckId !== deckId)); // Also remove review logs
+    setReviewLogs(prev => prev.filter(log => log.deckId !== deckId)); 
     if (selectedDeckId === deckId) {
       setSelectedDeckId(null);
     }
@@ -214,7 +250,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const deleteCard = useCallback((cardId: string) => {
     setCards(prev => prev.filter(c => c.id !== cardId));
-    // Also remove review logs associated with the deleted card
     setReviewLogs(prevLogs => prevLogs.filter(log => log.cardId !== cardId));
   }, [setCards, setReviewLogs]);
 
@@ -222,15 +257,56 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const card = cards.find(c => c.id === cardId);
     if (card) {
       const wasNewCard = card.repetitions === 0;
-      const updates = calculateNextReview(card, grade);
-      updateCard({ id: cardId, ...updates });
+      const oldIsLeech = card.isLeech;
 
-      // Create and add review log
+      let currentAgainCount = card.againCount || 0;
+      let currentConsecutiveAgainCount = card.consecutiveAgainCount || 0;
+
+      if (grade === 'again') {
+        currentAgainCount++;
+        currentConsecutiveAgainCount++;
+      } else {
+        currentConsecutiveAgainCount = 0;
+      }
+
+      let newIsLeech = card.isLeech;
+      if (!oldIsLeech) {
+        const meetsConsecutiveThreshold = currentConsecutiveAgainCount >= LEECH_CONSECUTIVE_AGAIN_THRESHOLD;
+        const meetsTotalThreshold = currentAgainCount >= LEECH_TOTAL_AGAIN_THRESHOLD && card.interval < LEECH_INTERVAL_MATURITY_THRESHOLD;
+        if (meetsConsecutiveThreshold || meetsTotalThreshold) {
+          newIsLeech = true;
+        }
+      }
+      
+      const srsUpdates = calculateNextReview(card, grade);
+      
+      const cardUpdates: Partial<Card> & { id: string } = {
+        id: cardId,
+        ...srsUpdates,
+        againCount: currentAgainCount,
+        consecutiveAgainCount: currentConsecutiveAgainCount,
+        isLeech: newIsLeech,
+      };
+
+      if (!oldIsLeech && newIsLeech) {
+        cardUpdates.interval = LEECH_SUSPEND_INTERVAL_DAYS;
+        cardUpdates.dueDate = formatISO(addDays(startOfDay(new Date()), LEECH_SUSPEND_INTERVAL_DAYS));
+        cardUpdates.easeFactor = Math.max(LEECH_MIN_EASE_FACTOR, (card.easeFactor || 2.5) - 0.5);
+        toast({
+          title: t('leechNotificationTitle'),
+          description: t('leechNotificationMessage', { cardFront: card.front }),
+          variant: "destructive", // Or a custom "warning" variant if available/desired
+          duration: 5000,
+        });
+      }
+      
+      updateCard(cardUpdates);
+
       const newLog: ReviewLog = {
         id: crypto.randomUUID(),
         cardId: card.id,
         deckId: card.deckId,
-        timestamp: new Date().toISOString(), // Log current time
+        timestamp: new Date().toISOString(),
         grade: grade,
       };
       setReviewLogs(prevLogs => [...prevLogs, newLog]);
@@ -261,7 +337,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
       }
     }
-  }, [cards, decks, updateCard, updateDeck, setReviewLogs]);
+  }, [cards, decks, updateCard, updateDeck, setReviewLogs, toast, t]);
 
   const resetDeckProgress = useCallback((deckId: string) => {
     const now = formatISO(new Date());
@@ -271,15 +347,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
           ...c,
           dueDate: now,
           interval: 0,
-          easeFactor: 2.5,
+          easeFactor: 2.5, // Reset ease factor
           repetitions: 0,
+          againCount: 0,
+          consecutiveAgainCount: 0,
+          isLeech: false,
           updatedAt: now,
         };
       }
       return c;
     }));
     updateDeck(deckId, { dailyNewCardsIntroduced: 0, lastSessionDate: formatISO(startOfDay(new Date())) });
-    // Remove review logs for this deck
     setReviewLogs(prevLogs => prevLogs.filter(log => log.deckId !== deckId));
   }, [setCards, updateDeck, setReviewLogs]);
 
@@ -291,7 +369,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const currentDeck = getDeckById(deckId);
     if (!currentDeck) return { due: [], newCards: [] };
 
-    const allDeckCards = getCardsByDeckId(deckId);
+    const allDeckCards = getCardsByDeckId(deckId).filter(card => !card.isLeech); // Exclude leeches from normal queue
     const today = startOfDay(new Date());
     const due: Card[] = [];
     const potentialNewCards: Card[] = [];
@@ -314,7 +392,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const actualNewCards = potentialNewCards.slice(0, newCardsLimit);
 
     return { due, newCards: actualNewCards };
-  }, [cards, getCardsByDeckId, getDeckById, decks]); // `decks` is needed for currentDeck.newCardsPerDay
+  }, [cards, getCardsByDeckId, getDeckById, decks]);
 
   const contextValue = useMemo(() => ({
     decks, cards, userSettings, reviewLogs, currentView, selectedDeckId, isLoading,

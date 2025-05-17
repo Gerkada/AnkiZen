@@ -15,6 +15,10 @@ export interface Card {
   easeFactor: number; // e.g., 2.5
   repetitions: number; // number of successful recalls
   notes?: string; // Optional field for user notes
+  // Leech tracking
+  againCount: number;
+  consecutiveAgainCount: number;
+  isLeech: boolean;
   createdAt: string; // ISO date string
   updatedAt: string; // ISO date string
 }
