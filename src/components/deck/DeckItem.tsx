@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from 'react';
@@ -39,7 +40,7 @@ export default function DeckItem({ deck, cardCount }: DeckItemProps) {
 
   return (
     <>
-      <Card className="flex flex-col">
+      <Card className="flex flex-col md:min-w-96">
         <CardHeader>
           <div className="flex justify-between items-start">
             <CardTitle className="text-xl font-semibold">{deck.name}</CardTitle>
@@ -66,7 +67,7 @@ export default function DeckItem({ deck, cardCount }: DeckItemProps) {
         <CardContent className="flex-grow">
           {/* Future: could show some stats like due cards */}
         </CardContent>
-        <CardFooter className="flex justify-end space-x-2">
+        <CardFooter className="flex flex-wrap justify-end gap-2">
           <Button variant="outline" onClick={handleEditCards}>
             <Edit className="mr-2 h-4 w-4" />
             {t('manageCards')}
