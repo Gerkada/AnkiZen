@@ -75,7 +75,7 @@ export default function StudyView() {
       setStudyQueue(sessionCards); 
       setSessionNewCardCount(limitedNewCards.length);
       setSessionDueCardCount(due.length);    
-      setIsFlipped(false); 
+      // setIsFlipped(false); // This is handled when currentCard changes
     } else {
       setStudyQueue([]);
       setSessionNewCardCount(0);
@@ -102,6 +102,7 @@ export default function StudyView() {
     if (currentCard) {
       reviewCard(currentCard.id, grade); // This might update deck.dailyNewCardsIntroduced
       // The queue will update, and subsequent calls to getDueCardsForDeck will reflect the new counts.
+      // isFlipped will be reset by the useEffect hook that responds to studyQueue changes.
       setStudyQueue(prev => {
           const newQueue = prev.slice(1);
           // Session counts will be re-evaluated by initializeStudySession in the next effect cycle if deck changed
@@ -186,7 +187,7 @@ export default function StudyView() {
       }
     });
     return { underStudyCount: underStudy, learnedCount: learned, totalCount: allDeckCards.length };
-  }, [deck, selectedDeckId, getCardsByDeckId]);
+  }, [deck, selectedDeckId, getCardsByDeckId, studyQueue]); // Added studyQueue dependency
 
 
   if (!deck) {
@@ -294,7 +295,8 @@ export default function StudyView() {
 
       {currentCard ? (
         <>
-          <Flashcard 
+          <Flashcard
+            key={currentCard.id} // Add key here
             card={currentCard} 
             isFlipped={isFlipped} 
             onFlip={handleFlip} 
@@ -328,3 +330,4 @@ export default function StudyView() {
     </div>
   );
 }
+
