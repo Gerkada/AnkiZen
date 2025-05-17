@@ -40,7 +40,10 @@ export default function DeckItem({ deck, cardCount }: DeckItemProps) {
 
   return (
     <>
-      <Card className="group flex flex-col md:min-w-96 cursor-pointer transition-all" tabIndex={0}>
+      <Card 
+        className="group flex flex-col cursor-pointer transition-all duration-200 ease-in-out hover:shadow-xl hover:scale-105 focus-within:shadow-xl focus-within:scale-105" 
+        tabIndex={0}
+      >
         <CardHeader>
           <div className="flex justify-between items-start">
             <CardTitle className="text-xl font-semibold">{deck.name}</CardTitle>
@@ -69,7 +72,7 @@ export default function DeckItem({ deck, cardCount }: DeckItemProps) {
           </div>
           <CardDescription>{t('deckDetails', { count: cardCount })}</CardDescription>
         </CardHeader>
-        <CardContent className="flex-grow">
+        <CardContent>
           {/* Future: could show some stats like due cards */}
         </CardContent>
         <CardFooter className="flex flex-wrap justify-end gap-2 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-150">
