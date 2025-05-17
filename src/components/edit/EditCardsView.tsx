@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -119,13 +120,13 @@ export default function EditCardsView() {
                 {sortedCards.map((card) => (
                   <TableRow key={card.id}>
                     <TableCell className="font-medium truncate max-w-xs">{card.front}</TableCell>
-                    <TableCell className="truncate max-w-xs">{card.reading}</TableCell>
+                    <TableCell className="truncate max-w-xs">{card.reading || '-'}</TableCell>
                     <TableCell className="truncate max-w-xs">{card.translation}</TableCell>
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="icon" onClick={() => handleEdit(card)} className="mr-2">
+                      <Button variant="ghost" size="icon" onClick={() => handleEdit(card)} className="mr-2" aria-label={t('editCard')}>
                         <Edit2 className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleDeleteConfirm(card)} className="text-destructive hover:text-destructive">
+                      <Button variant="ghost" size="icon" onClick={() => handleDeleteConfirm(card)} className="text-destructive hover:text-destructive" aria-label={t('deleteCard')}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </TableCell>
@@ -142,7 +143,7 @@ export default function EditCardsView() {
           <AlertDialogHeader>
             <AlertDialogTitle>{t('deleteCard')}</AlertDialogTitle>
             <AlertDialogDescription>
-              {t('confirmDeleteCard')} "{cardToDelete?.front}"?
+              {t('confirmDeleteCard', { cardFront: cardToDelete?.front || '' })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -5,7 +6,7 @@ import type { Card as CardType } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea'; // Assuming Textarea is similar to Input
+import { Textarea } from '@/components/ui/textarea';
 import { useApp } from '@/contexts/AppContext';
 import { useLanguage } from '@/contexts/LanguageProvider';
 import { useToast } from '@/hooks/use-toast';
@@ -28,7 +29,7 @@ export default function CardEditor({ card, deckId, onSave, onCancel }: CardEdito
   useEffect(() => {
     if (card) {
       setFront(card.front);
-      setReading(card.reading);
+      setReading(card.reading || ''); // Ensure reading is not undefined
       setTranslation(card.translation);
     } else {
       // Reset for new card
@@ -39,17 +40,22 @@ export default function CardEditor({ card, deckId, onSave, onCancel }: CardEdito
   }, [card]);
 
   const handleSubmit = () => {
-    if (!front.trim() || !translation.trim()) {
-      toast({ title: "Error", description: "Front and Translation fields are required.", variant: "destructive" });
+    if (!front.trim()) {
+      toast({ title: t('errorTitle'), description: t('frontRequiredError'), variant: "destructive" });
       return;
     }
+    if (!translation.trim()) {
+        toast({ title: t('errorTitle'), description: t('translationRequiredError'), variant: "destructive" });
+        return;
+    }
+
 
     if (card) { // Editing existing card
       updateCard({ id: card.id, front, reading, translation });
-      toast({ title: "Success", description: "Card updated." });
+      toast({ title: t('successTitle'), description: t('cardUpdatedMsg') });
     } else { // Adding new card
       addCardToDeck(deckId, front, reading, translation);
-      toast({ title: "Success", description: "Card added." });
+      toast({ title: t('successTitle'), description: t('cardAddedMsg') });
     }
     onSave();
   };
@@ -59,15 +65,15 @@ export default function CardEditor({ card, deckId, onSave, onCancel }: CardEdito
       <h3 className="text-lg font-medium">{card ? t('editCard') : t('addCard')}</h3>
       <div>
         <Label htmlFor="card-front">{t('front')}</Label>
-        <Input id="card-front" value={front} onChange={(e) => setFront(e.target.value)} />
+        <Input id="card-front" value={front} onChange={(e) => setFront(e.target.value)} placeholder={t('frontPlaceholder')} />
       </div>
       <div>
         <Label htmlFor="card-reading">{t('reading')}</Label>
-        <Input id="card-reading" value={reading} onChange={(e) => setReading(e.target.value)} />
+        <Input id="card-reading" value={reading} onChange={(e) => setReading(e.target.value)} placeholder={t('readingPlaceholder')} />
       </div>
       <div>
         <Label htmlFor="card-translation">{t('translation')}</Label>
-        <Textarea id="card-translation" value={translation} onChange={(e) => setTranslation(e.target.value)} />
+        <Textarea id="card-translation" value={translation} onChange={(e) => setTranslation(e.target.value)} placeholder={t('translationPlaceholder')} />
       </div>
       <div className="flex justify-end space-x-2">
         <Button variant="outline" onClick={onCancel}>{t('cancel')}</Button>

@@ -30,10 +30,13 @@
   "swapFrontBack": "Поміняти перед/зад",
   "editCard": "Редагувати картку",
   "deleteCard": "Видалити картку",
-  "confirmDeleteCard": "Ви впевнені, що хочете видалити цю картку?",
+  "confirmDeleteCard": "Ви впевнені, що хочете видалити картку \"{{cardFront}}\"?",
   "front": "Лицьова сторона (Кандзі/Слово)",
-  "reading": "Читання",
+  "reading": "Читання (Необов'язково)",
   "translation": "Переклад",
+  "frontPlaceholder": "наприклад, 日本",
+  "readingPlaceholder": "наприклад, にほん",
+  "translationPlaceholder": "наприклад, Японія",
   "saveChanges": "Зберегти зміни",
   "addCard": "Додати картку",
   "noCardsInDeck": "У цій колоді немає карток. Додайте, щоб почати редагування.",
@@ -59,5 +62,11 @@
   "studyControlsTooltipFlip": "Натисніть картку або Space, щоб перевернути.",
   "studyControlsTooltipGrade": "Використовуйте клавіші 1 (Знову), 2 (Важко), 3 (Добре), 4 (Легко) для оцінки.",
   "dismissTooltip": "Закрити підказку",
-  "actions": "Дії"
+  "actions": "Дії",
+  "errorTitle": "Помилка",
+  "successTitle": "Успіх",
+  "frontRequiredError": "Поле 'Лицьова сторона' є обов'язковим.",
+  "translationRequiredError": "Поле 'Переклад' є обов'язковим.",
+  "cardUpdatedMsg": "Картку оновлено.",
+  "cardAddedMsg": "Картку додано."
 }

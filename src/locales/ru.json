@@ -30,10 +30,13 @@
   "swapFrontBack": "Поменять перед/зад",
   "editCard": "Редактировать карточку",
   "deleteCard": "Удалить карточку",
-  "confirmDeleteCard": "Вы уверены, что хотите удалить эту карточку?",
+  "confirmDeleteCard": "Вы уверены, что хотите удалить карточку \"{{cardFront}}\"?",
   "front": "Лицевая сторона (Кандзи/Слово)",
-  "reading": "Чтение",
+  "reading": "Чтение (Необязательно)",
   "translation": "Перевод",
+  "frontPlaceholder": "например, 日本",
+  "readingPlaceholder": "например, にほん",
+  "translationPlaceholder": "например, Япония",
   "saveChanges": "Сохранить изменения",
   "addCard": "Добавить карточку",
   "noCardsInDeck": "В этой колоде нет карточек. Добавьте, чтобы начать редактирование.",
@@ -59,5 +62,11 @@
   "studyControlsTooltipFlip": "Нажмите на карточку или Space, чтобы перевернуть.",
   "studyControlsTooltipGrade": "Используйте клавиши 1 (Снова), 2 (Трудно), 3 (Хорошо), 4 (Легко) для оценки.",
   "dismissTooltip": "Закрыть подсказку",
-  "actions": "Действия"
+  "actions": "Действия",
+  "errorTitle": "Ошибка",
+  "successTitle": "Успех",
+  "frontRequiredError": "Поле 'Лицевая сторона' обязательно для заполнения.",
+  "translationRequiredError": "Поле 'Перевод' обязательно для заполнения.",
+  "cardUpdatedMsg": "Карточка обновлена.",
+  "cardAddedMsg": "Карточка добавлена."
 }

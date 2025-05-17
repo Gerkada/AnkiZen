@@ -30,10 +30,13 @@
   "swapFrontBack": "Swap Front/Back",
   "editCard": "Edit Card",
   "deleteCard": "Delete Card",
-  "confirmDeleteCard": "Are you sure you want to delete this card?",
+  "confirmDeleteCard": "Are you sure you want to delete the card \"{{cardFront}}\"?",
   "front": "Front (Kanji/Word)",
-  "reading": "Reading",
+  "reading": "Reading (Optional)",
   "translation": "Translation",
+  "frontPlaceholder": "e.g., 日本",
+  "readingPlaceholder": "e.g., にほん",
+  "translationPlaceholder": "e.g., Japan",
   "saveChanges": "Save Changes",
   "addCard": "Add Card",
   "noCardsInDeck": "No cards in this deck. Add some to start editing.",
@@ -59,5 +62,11 @@
   "studyControlsTooltipFlip": "Click card or press Space to flip.",
   "studyControlsTooltipGrade": "Use keys 1 (Again), 2 (Hard), 3 (Good), 4 (Easy) to grade.",
   "dismissTooltip": "Dismiss tooltip",
-  "actions": "Actions"
+  "actions": "Actions",
+  "errorTitle": "Error",
+  "successTitle": "Success",
+  "frontRequiredError": "Front field is required.",
+  "translationRequiredError": "Translation field is required.",
+  "cardUpdatedMsg": "Card updated.",
+  "cardAddedMsg": "Card added."
 }
