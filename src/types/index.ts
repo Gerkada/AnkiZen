@@ -42,3 +42,11 @@ export type AppView = 'deck-list' | 'study' | 'edit-cards' | 'test' | 'statistic
 
 export type SRSGrade = 'again' | 'hard' | 'good' | 'easy';
 
+export interface ReviewLog {
+  id: string;
+  cardId: string;
+  deckId: string;
+  timestamp: string; // ISO string for when the review occurred
+  grade: SRSGrade;   // The grade given
+}
+

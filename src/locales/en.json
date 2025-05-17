@@ -102,7 +102,9 @@
   "learningStreak": "Learning Streak",
   "currentStreak": "Current",
   "longestStreak": "Longest",
-  "days": "days",
+  "days_one": "{{count}} day",
+  "days_other": "{{count}} days",
+  "days": "{{count}} days",
   "intervalDistribution": "Interval Distribution",
   "intervalDistributionDesc": "Distribution of cards by current review interval.",
   "intervalNew": "New",
@@ -116,6 +118,11 @@
   "numberOfCards": "Number of Cards",
   "general": "General",
   "noCardsForStats": "No card data available to display statistics.",
-  "studyActivityTitle": "Study Activity (Coming Soon)",
-  "studyActivityDesc": "Detailed graphs of your study activity per day, week, and month will be available in a future update. This requires more detailed logging of review history."
+  "studyActivityTitle": "Study Activity",
+  "studyActivityDescUpdated": "Number of reviews per day, week, and month.",
+  "reviews": "Reviews",
+  "daily": "Daily",
+  "weekly": "Weekly",
+  "monthly": "Monthly",
+  "noReviewData": "No review data available yet. Start studying to see your activity!"
 }

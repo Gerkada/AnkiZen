@@ -9,10 +9,18 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { ArrowLeft } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { ChartConfig, ChartContainer, ChartTooltipContent } from "@/components/ui/chart";
-import { formatISO, parseISO, startOfDay, differenceInDays, isSameDay, addDays } from 'date-fns';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { 
+  format, parseISO, startOfDay, differenceInDays, isSameDay, addDays, 
+  subDays, eachDayOfInterval, endOfDay, isWithinInterval, 
+  startOfWeek, endOfWeek, eachWeekOfInterval, 
+  startOfMonth, endOfMonth, eachMonthOfInterval 
+} from 'date-fns';
+import { enUS, ru, uk } from 'date-fns/locale';
+
 
 const intervalCategories = [
-  { labelKey: 'intervalNew', min: 0, max: 0 }, // Special case for new cards (interval 0)
+  { labelKey: 'intervalNew', min: 0, max: 0 }, 
   { labelKey: 'interval1_2', min: 1, max: 2 },
   { labelKey: 'interval3_7', min: 3, max: 7 },
   { labelKey: 'interval8_14', min: 8, max: 14 },
@@ -22,17 +30,30 @@ const intervalCategories = [
   { labelKey: 'intervalOver180', min: 181, max: Infinity },
 ];
 
-const chartConfig = {
+const intervalChartConfig = {
   cards: {
-    label: "Cards", // This will be translated dynamically
+    label: "Cards", 
     color: "hsl(var(--chart-1))",
   },
 } satisfies ChartConfig;
 
+const activityChartConfig = {
+  reviews: {
+    label: "Reviews", // Will be translated dynamically
+    color: "hsl(var(--chart-2))",
+  }
+} satisfies ChartConfig;
+
+const dateLocales: { [key: string]: Locale } = {
+  en: enUS,
+  ru: ru,
+  ua: uk,
+};
 
 export default function StatisticsView() {
-  const { decks, cards, setCurrentView } = useApp();
-  const { t } = useLanguage();
+  const { decks, cards, reviewLogs, setCurrentView } = useApp();
+  const { t, language } = useLanguage();
+  const currentLocale = dateLocales[language] || enUS;
 
   const totalDecks = decks.length;
   const totalCards = cards.length;
@@ -41,7 +62,7 @@ export default function StatisticsView() {
     if (cards.length === 0) return { current: 0, longest: 0 };
 
     const reviewedCardDates = cards
-      .filter(card => card.repetitions > 0)
+      .filter(card => card.repetitions > 0 && card.updatedAt)
       .map(card => formatISO(startOfDay(parseISO(card.updatedAt))))
       .sort();
     
@@ -52,39 +73,25 @@ export default function StatisticsView() {
     let longestStreak = 0;
     let today = startOfDay(new Date());
 
-    if (isSameDay(parseISO(uniqueDates[uniqueDates.length -1]), today) || isSameDay(parseISO(uniqueDates[uniqueDates.length -1]), addDays(today, -1))) {
-       // Check if the last learning day is today or yesterday for current streak calculation
-        let streak = 0;
-        let lastDate = today; // Start checking from today backwards
-        if(!uniqueDates.includes(formatISO(today))) { // If not studied today, check if streak ended yesterday
-             if(uniqueDates.includes(formatISO(addDays(today, -1)))){
-                streak = 1;
-                lastDate = addDays(today, -1);
-             } else {
-                streak = 0;
-             }
-        } else { // Studied today
-            streak =1;
-            lastDate = today;
-        }
-
-
-        for (let i = uniqueDates.length -1; i >=0; i--) {
-            const currentDate = parseISO(uniqueDates[i]);
-            if (isSameDay(currentDate, lastDate)) { // Found today or yesterday
-                if(!isSameDay(currentDate, today) && streak === 0) continue; // If checking from yesterday, skip if not studied today
-            } else if (isSameDay(currentDate, addDays(lastDate, -1))) {
-                 streak++;
-            } else if (streak > 0) { // Streak broken before this date
-                break;
-            }
-            lastDate = currentDate;
-            if (uniqueDates.indexOf(formatISO(currentDate)) === 0 && streak > 0 && !isSameDay(currentDate, addDays(lastDate, -1))) {
-                // handles a single day streak if it's the only day.
-                // Or if streak started today or yesterday but no prior days.
-            }
-        }
-        currentStreak = streak;
+    // Calculate current streak
+    if (uniqueDates.includes(formatISO(today)) || uniqueDates.includes(formatISO(addDays(today, -1)))) {
+      let streak = 0;
+      let lastDateConsidered = today;
+      for (let i = uniqueDates.length -1; i >=0; i--) {
+          const currentDate = parseISO(uniqueDates[i]);
+          if (isSameDay(currentDate, lastDateConsidered)) {
+              streak++;
+          } else if (isSameDay(currentDate, addDays(lastDateConsidered, -1))) {
+              streak++;
+          } else {
+              // Streak broken if not today or yesterday relative to lastDateConsidered
+              if (!isSameDay(lastDateConsidered, today)) break; 
+              // If checking from today, and it's not today or yesterday, break
+              if (isSameDay(lastDateConsidered, today) && !isSameDay(currentDate, addDays(today, -1))) break;
+          }
+          lastDateConsidered = currentDate;
+      }
+       currentStreak = streak;
     }
 
 
@@ -104,8 +111,8 @@ export default function StatisticsView() {
             }
         }
     }
-    longestStreak = Math.max(localLongestStreak, currentSequence);
-    if (uniqueDates.length === 1) longestStreak =1;
+    longestStreak = Math.max(localLongestStreak, currentSequence, currentStreak); // Ensure currentStreak is considered if it's the longest
+    if (uniqueDates.length === 1) longestStreak = 1;
 
 
     return { current: currentStreak, longest: longestStreak };
@@ -116,13 +123,66 @@ export default function StatisticsView() {
     
     const data = intervalCategories.map(category => {
       const count = cards.filter(card => {
-        if (category.labelKey === 'intervalNew') return card.interval === 0 && card.repetitions === 0; // Strictly new
+        if (category.labelKey === 'intervalNew') return card.interval === 0 && card.repetitions === 0;
         return card.repetitions > 0 && card.interval >= category.min && card.interval <= category.max;
       }).length;
       return { name: t(category.labelKey), cards: count };
     });
-    return data.filter(item => item.cards > 0); // Only show categories with cards
+    return data.filter(item => item.cards > 0);
   }, [cards, t]);
+
+  const dailyActivityData = useMemo(() => {
+    if (reviewLogs.length === 0) return [];
+    const thirtyDaysAgo = startOfDay(subDays(new Date(), 29));
+    const today = endOfDay(new Date());
+    const dateRange = eachDayOfInterval({ start: thirtyDaysAgo, end: today });
+
+    return dateRange.map(day => {
+      const count = reviewLogs.filter(log => 
+        isSameDay(parseISO(log.timestamp), day)
+      ).length;
+      return { date: format(day, 'MMM d', { locale: currentLocale }), count };
+    });
+  }, [reviewLogs, currentLocale]);
+
+  const weeklyActivityData = useMemo(() => {
+    if (reviewLogs.length === 0) return [];
+    const twelveWeeksAgo = startOfWeek(subDays(new Date(), 12 * 7 -1), { locale: currentLocale });
+    const currentWeekEnd = endOfWeek(new Date(), { locale: currentLocale });
+    const weekRange = eachWeekOfInterval({ start: twelveWeeksAgo, end: currentWeekEnd }, { weekStartsOn: currentLocale.options?.weekStartsOn ?? 1 });
+
+    return weekRange.map(weekStart => {
+        const weekEnd = endOfWeek(weekStart, { locale: currentLocale });
+        const count = reviewLogs.filter(log => 
+            isWithinInterval(parseISO(log.timestamp), {start: weekStart, end: weekEnd})
+        ).length;
+        return { week: format(weekStart, 'MMM d', { locale: currentLocale }), count };
+    });
+  }, [reviewLogs, currentLocale]);
+
+  const monthlyActivityData = useMemo(() => {
+    if (reviewLogs.length === 0) return [];
+    const twelveMonthsAgo = startOfMonth(subDays(new Date(), 365)); // Approx 12 months
+    const currentMonthEnd = endOfMonth(new Date());
+    // Ensure we get 12 distinct months
+    let monthsToDisplay : Date[] = [];
+    let currentMonthIter = startOfMonth(new Date());
+    for(let i=0; i<12; i++){
+        monthsToDisplay.unshift(currentMonthIter);
+        currentMonthIter = subDays(startOfMonth(currentMonthIter),1); // go to previous month
+        currentMonthIter = startOfMonth(currentMonthIter);
+    }
+
+
+    return monthsToDisplay.map(monthStart => {
+        const monthEnd = endOfMonth(monthStart);
+        const count = reviewLogs.filter(log => 
+            isWithinInterval(parseISO(log.timestamp), {start: monthStart, end: monthEnd})
+        ).length;
+        return { month: format(monthStart, 'MMM yyyy', { locale: currentLocale }), count };
+    });
+  }, [reviewLogs, currentLocale]);
+
 
   return (
     <div className="space-y-6">
@@ -131,7 +191,7 @@ export default function StatisticsView() {
           <ArrowLeft className="mr-2 h-4 w-4" /> {t('decks')}
         </Button>
         <h2 className="text-2xl font-semibold tracking-tight">{t('statistics')}</h2>
-        <div className="w-20"></div> {/* Placeholder for alignment */}
+        <div className="w-20"></div> 
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -156,20 +216,20 @@ export default function StatisticsView() {
             <CardTitle>{t('learningStreak')}</CardTitle>
           </CardHeader>
           <CardContent>
-            <p>{t('currentStreak')}: <span className="font-bold">{learningStreak.current} {t('days')}</span></p>
-            <p>{t('longestStreak')}: <span className="font-bold">{learningStreak.longest} {t('days')}</span></p>
+            <p>{t('currentStreak')}: <span className="font-bold">{learningStreak.current} {t('days', {count: learningStreak.current})}</span></p>
+            <p>{t('longestStreak')}: <span className="font-bold">{learningStreak.longest} {t('days', {count: learningStreak.longest})}</span></p>
           </CardContent>
         </Card>
       </div>
       
-      {cards.length > 0 ? (
+      {cards.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle>{t('intervalDistribution')}</CardTitle>
             <CardDescription>{t('intervalDistributionDesc')}</CardDescription>
           </CardHeader>
           <CardContent className="h-[400px] pr-0">
-            <ChartContainer config={{...chartConfig, cards: {...chartConfig.cards, label: t('numberOfCards')}}} className="h-full w-full">
+            <ChartContainer config={{...intervalChartConfig, cards: {...intervalChartConfig.cards, label: t('numberOfCards')}}} className="h-full w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={intervalData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false}/>
@@ -182,24 +242,76 @@ export default function StatisticsView() {
                         hideIndicator
                     />}
                   />
-                  <Legend />
                   <Bar dataKey="cards" fill="hsl(var(--chart-1))" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </ChartContainer>
           </CardContent>
         </Card>
-      ) : (
-        <p className="text-muted-foreground">{t('noCardsForStats')}</p>
       )}
-       <Card>
-          <CardHeader>
-            <CardTitle>{t('studyActivityTitle')}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground">{t('studyActivityDesc')}</p>
-          </CardContent>
-        </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('studyActivityTitle')}</CardTitle>
+          <CardDescription>{t('studyActivityDescUpdated')}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {reviewLogs.length === 0 ? (
+             <p className="text-muted-foreground">{t('noReviewData')}</p>
+          ) : (
+          <Tabs defaultValue="daily">
+            <TabsList className="grid w-full grid-cols-3 mb-4">
+              <TabsTrigger value="daily">{t('daily')}</TabsTrigger>
+              <TabsTrigger value="weekly">{t('weekly')}</TabsTrigger>
+              <TabsTrigger value="monthly">{t('monthly')}</TabsTrigger>
+            </TabsList>
+            <TabsContent value="daily" className="h-[400px] pr-0">
+              <ChartContainer config={{...activityChartConfig, reviews: {...activityChartConfig.reviews, label: t('reviews')}}} className="h-full w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={dailyActivityData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false}/>
+                    <XAxis dataKey="date" tickLine={false} axisLine={false} />
+                    <YAxis allowDecimals={false} tickLine={false} axisLine={false} />
+                    <Tooltip content={<ChartTooltipContent nameKey="count" labelKey="date" hideIndicator />} />
+                    <Bar dataKey="count" name={t('reviews')} fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </ChartContainer>
+            </TabsContent>
+            <TabsContent value="weekly" className="h-[400px] pr-0">
+              <ChartContainer config={{...activityChartConfig, reviews: {...activityChartConfig.reviews, label: t('reviews')}}} className="h-full w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={weeklyActivityData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false}/>
+                    <XAxis dataKey="week" tickLine={false} axisLine={false} />
+                    <YAxis allowDecimals={false} tickLine={false} axisLine={false} />
+                    <Tooltip content={<ChartTooltipContent nameKey="count" labelKey="week" hideIndicator />} />
+                    <Bar dataKey="count" name={t('reviews')} fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </ChartContainer>
+            </TabsContent>
+            <TabsContent value="monthly" className="h-[400px] pr-0">
+               <ChartContainer config={{...activityChartConfig, reviews: {...activityChartConfig.reviews, label: t('reviews')}}} className="h-full w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={monthlyActivityData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false}/>
+                    <XAxis dataKey="month" tickLine={false} axisLine={false} />
+                    <YAxis allowDecimals={false} tickLine={false} axisLine={false} />
+                    <Tooltip content={<ChartTooltipContent nameKey="count" labelKey="month" hideIndicator />} />
+                    <Bar dataKey="count" name={t('reviews')} fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </ChartContainer>
+            </TabsContent>
+          </Tabs>
+          )}
+        </CardContent>
+      </Card>
+
+      {cards.length === 0 && reviewLogs.length === 0 && (
+         <p className="text-muted-foreground">{t('noCardsForStats')}</p>
+      )}
     </div>
   );
 }

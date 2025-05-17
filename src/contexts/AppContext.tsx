@@ -3,7 +3,7 @@
 
 import type { ReactNode } from 'react';
 import { createContext, useContext, useState, useCallback, useEffect, useMemo } from 'react';
-import type { Deck, Card, UserSettings, AppView, SRSGrade } from '@/types';
+import type { Deck, Card, UserSettings, AppView, SRSGrade, ReviewLog } from '@/types';
 import useLocalStorage from '@/hooks/useLocalStorage';
 import { calculateNextReview, createNewCard } from '@/lib/srs';
 import { formatISO, parseISO, isBefore, startOfDay } from 'date-fns';
@@ -24,6 +24,7 @@ interface AppContextState {
   decks: Deck[];
   cards: Card[];
   userSettings: UserSettings;
+  reviewLogs: ReviewLog[];
   
   // App State
   currentView: AppView;
@@ -69,6 +70,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [decks, setDecks] = useLocalStorage<Deck[]>('ankizen-decks', []);
   const [cards, setCards] = useLocalStorage<Card[]>('ankizen-cards', []);
   const [userSettings, setUserSettingsState] = useLocalStorage<UserSettings>('ankizen-user-settings', initialUserSettings);
+  const [reviewLogs, setReviewLogs] = useLocalStorage<ReviewLog[]>('ankizen-review-logs', []);
   
   const [currentView, setCurrentViewInternal] = useState<AppView>('deck-list');
   const [selectedDeckId, setSelectedDeckIdInternal] = useState<string | null>(userSettings.lastStudiedDeckId || null);
@@ -168,10 +170,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const deleteDeck = useCallback((deckId: string) => {
     setDecks(prev => prev.filter(d => d.id !== deckId));
     setCards(prev => prev.filter(c => c.deckId !== deckId));
+    setReviewLogs(prev => prev.filter(log => log.deckId !== deckId)); // Also remove review logs
     if (selectedDeckId === deckId) {
       setSelectedDeckId(null);
     }
-  }, [setDecks, setCards, selectedDeckId, setSelectedDeckId]);
+  }, [setDecks, setCards, setReviewLogs, selectedDeckId, setSelectedDeckId]);
 
   const addCardToDeck = useCallback((deckId: string, front: string, reading: string, translation: string): Card => {
     const newCard = createNewCard(deckId, front, reading, translation);
@@ -211,7 +214,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const deleteCard = useCallback((cardId: string) => {
     setCards(prev => prev.filter(c => c.id !== cardId));
-  }, [setCards]);
+    // Also remove review logs associated with the deleted card
+    setReviewLogs(prevLogs => prevLogs.filter(log => log.cardId !== cardId));
+  }, [setCards, setReviewLogs]);
 
   const reviewCard = useCallback((cardId: string, grade: SRSGrade) => {
     const card = cards.find(c => c.id === cardId);
@@ -220,28 +225,34 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const updates = calculateNextReview(card, grade);
       updateCard({ id: cardId, ...updates });
 
+      // Create and add review log
+      const newLog: ReviewLog = {
+        id: crypto.randomUUID(),
+        cardId: card.id,
+        deckId: card.deckId,
+        timestamp: new Date().toISOString(), // Log current time
+        grade: grade,
+      };
+      setReviewLogs(prevLogs => [...prevLogs, newLog]);
+
       if (wasNewCard && grade !== 'again') {
-        const currentDeck = decks.find(d => d.id === card.deckId); // Get current deck state
+        const currentDeck = decks.find(d => d.id === card.deckId);
         if (currentDeck) {
           const todayISO = formatISO(startOfDay(new Date()));
           let newDailyIntroduced = currentDeck.dailyNewCardsIntroduced;
           
           if (currentDeck.lastSessionDate !== todayISO) {
-            // This is the first new card reviewed today for this deck
             newDailyIntroduced = 1;
           } else {
             newDailyIntroduced += 1;
           }
-          // Only increment if still within the daily limit for *new* cards
-          // This check might be slightly redundant if getDueCardsForDeck is strict, but good for safety
+          
           if (newDailyIntroduced <= currentDeck.newCardsPerDay) {
              updateDeck(card.deckId, {
                 dailyNewCardsIntroduced: newDailyIntroduced,
                 lastSessionDate: todayISO, 
              });
           } else {
-            // If somehow more new cards were reviewed than allowed (e.g. limit changed mid-session),
-            // ensure dailyNewCardsIntroduced doesn't exceed newCardsPerDay.
             updateDeck(card.deckId, {
                 dailyNewCardsIntroduced: currentDeck.newCardsPerDay,
                 lastSessionDate: todayISO,
@@ -250,7 +261,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
       }
     }
-  }, [cards, decks, updateCard, updateDeck]);
+  }, [cards, decks, updateCard, updateDeck, setReviewLogs]);
 
   const resetDeckProgress = useCallback((deckId: string) => {
     const now = formatISO(new Date());
@@ -267,9 +278,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
       return c;
     }));
-    // Also reset daily new card count for this deck if progress is reset
     updateDeck(deckId, { dailyNewCardsIntroduced: 0, lastSessionDate: formatISO(startOfDay(new Date())) });
-  }, [setCards, updateDeck]);
+    // Remove review logs for this deck
+    setReviewLogs(prevLogs => prevLogs.filter(log => log.deckId !== deckId));
+  }, [setCards, updateDeck, setReviewLogs]);
 
   const getDeckById = useCallback((deckId: string) => decks.find(d => d.id === deckId), [decks]);
   
@@ -298,22 +310,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
     potentialNewCards.sort((a, b) => parseISO(a.createdAt).getTime() - parseISO(b.createdAt).getTime());
     due.sort((a,b) => parseISO(a.dueDate).getTime() - parseISO(b.dueDate).getTime());
     
-    // Apply the daily new card limit based on currentDeck's (potentially daily-reset) stats
     const newCardsLimit = Math.max(0, currentDeck.newCardsPerDay - currentDeck.dailyNewCardsIntroduced);
     const actualNewCards = potentialNewCards.slice(0, newCardsLimit);
 
     return { due, newCards: actualNewCards };
-  }, [cards, getCardsByDeckId, getDeckById, decks]);
-
+  }, [cards, getCardsByDeckId, getDeckById, decks]); // `decks` is needed for currentDeck.newCardsPerDay
 
   const contextValue = useMemo(() => ({
-    decks, cards, userSettings, currentView, selectedDeckId, isLoading,
+    decks, cards, userSettings, reviewLogs, currentView, selectedDeckId, isLoading,
     addDeck, renameDeck, updateDeck, deleteDeck, importCardsToDeck,
     addCardToDeck, updateCard, deleteCard, reviewCard, resetDeckProgress,
     setCurrentView, setSelectedDeckId, updateUserSettings,
     getDeckById, getCardsByDeckId, getDueCardsForDeck
   }), [
-    decks, cards, userSettings, currentView, selectedDeckId, isLoading,
+    decks, cards, userSettings, reviewLogs, currentView, selectedDeckId, isLoading,
     addDeck, renameDeck, updateDeck, deleteDeck, importCardsToDeck,
     addCardToDeck, updateCard, deleteCard, reviewCard, resetDeckProgress,
     setCurrentView, setSelectedDeckId, updateUserSettings,
