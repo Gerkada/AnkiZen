@@ -48,7 +48,8 @@ const initialUserSettings: UserSettings = {
   theme: 'light',
   lastStudiedDeckId: null,
   swapFrontBack: false,
-  showStudyControlsTooltip: true, // Default to show tooltip
+  showStudyControlsTooltip: true,
+  shuffleStudyQueue: false, // Default shuffle to false
 };
 
 const AppContext = createContext<AppContextState | undefined>(undefined);
@@ -63,15 +64,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true); // To handle initial load from localStorage
 
   useEffect(() => {
-    // This effect runs once on mount to signify localStorage has been read.
     setIsLoading(false);
-    // Ensure selectedDeckId is initialized from potentially updated userSettings
     if (userSettings.lastStudiedDeckId && !selectedDeckId) {
         setSelectedDeckIdInternal(userSettings.lastStudiedDeckId);
     }
-     // Ensure showStudyControlsTooltip is initialized if not present in localStorage
-    if (typeof userSettings.showStudyControlsTooltip === 'undefined') {
-      setUserSettingsState(prev => ({...prev, showStudyControlsTooltip: true}));
+    let updated = false;
+    const tempSettings = {...userSettings};
+    if (typeof tempSettings.showStudyControlsTooltip === 'undefined') {
+      tempSettings.showStudyControlsTooltip = true;
+      updated = true;
+    }
+    if (typeof tempSettings.shuffleStudyQueue === 'undefined') {
+      tempSettings.shuffleStudyQueue = false;
+      updated = true;
+    }
+    if (updated) {
+      setUserSettingsState(tempSettings);
     }
   }, [userSettings, selectedDeckId, setUserSettingsState]);
   

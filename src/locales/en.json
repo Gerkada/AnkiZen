@@ -28,6 +28,7 @@
   "resetProgress": "Reset Progress",
   "confirmResetProgress": "Are you sure you want to reset progress for all cards in this deck?",
   "swapFrontBack": "Swap Front/Back",
+  "shuffleCards": "Shuffle Cards",
   "editCard": "Edit Card",
   "deleteCard": "Delete Card",
   "confirmDeleteCard": "Are you sure you want to delete the card \"{{cardFront}}\"?",
@@ -80,4 +81,3 @@
   "loadingTest": "Loading test...",
   "showHint": "Show Hint"
 }
-

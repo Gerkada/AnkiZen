@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, Lightbulb } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { shuffleArray } from '@/lib/utils'; // Import shared shuffle function
 
 interface TestOption {
   cardId: string; // Original card ID for the translation (can be same as question for correct option)
@@ -16,15 +17,7 @@ interface TestOption {
   isCorrect: boolean;
 }
 
-// Helper function to shuffle an array
-function shuffleArray<T>(array: T[]): T[] {
-  const newArray = [...array];
-  for (let i = newArray.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
-  }
-  return newArray;
-}
+// Helper function to shuffle an array - MOVED TO LIB/UTILS.TS
 
 const MIN_CARDS_FOR_TEST = 4;
 
@@ -202,6 +195,8 @@ export default function TestView() {
               setQuestionCard(null); 
               setOptions([]);
               setShowHint(false);
+              // Need to call loadNextQuestion if deckCards.length >= MIN_CARDS_FOR_TEST
+              // This will be handled by the useEffect dependency on askedCardIds.length === 0 and !questionCard
             }} className="w-full">{t('restartTest')}</Button>
             <Button variant="outline" onClick={() => setCurrentView('deck-list')} className="w-full">
               {t('decks')}
@@ -270,4 +265,3 @@ export default function TestView() {
     </div>
   );
 }
-

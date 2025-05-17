@@ -31,10 +31,10 @@ export interface UserSettings {
   theme: Theme;
   lastStudiedDeckId?: string | null;
   swapFrontBack: boolean;
-  showStudyControlsTooltip: boolean; // Added for the new tooltip
+  showStudyControlsTooltip: boolean; 
+  shuffleStudyQueue: boolean; // Added for shuffling study queue
 }
 
 export type AppView = 'deck-list' | 'study' | 'edit-cards' | 'test';
 
 export type SRSGrade = 'again' | 'hard' | 'good' | 'easy';
-

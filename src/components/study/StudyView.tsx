@@ -8,13 +8,13 @@ import { useLanguage } from '@/contexts/LanguageProvider';
 import Flashcard from './Flashcard';
 import StudyControls from './StudyControls';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, RotateCcw, Repeat, Settings, XCircle } from 'lucide-react';
+import { ArrowLeft, RotateCcw, Repeat, Settings, XCircle, Shuffle } from 'lucide-react'; // Added Shuffle icon
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-
+import { shuffleArray } from '@/lib/utils'; // Import shuffleArray
 
 export default function StudyView() {
   const { 
@@ -41,20 +41,26 @@ export default function StudyView() {
   const initializeStudySession = useCallback(() => {
     if (selectedDeckId) {
       const { due, newCards } = getDueCardsForDeck(selectedDeckId);
-      setStudyQueue([...newCards, ...due]); 
-      setNewCardCount(newCards.length);
-      setDueCardCount(due.length);
+      
+      let sessionCards = [...newCards, ...due];
+      if (userSettings.shuffleStudyQueue) {
+        sessionCards = shuffleArray(sessionCards);
+      }
+      
+      setStudyQueue(sessionCards); 
+      setNewCardCount(newCards.length); // Keep original counts for display
+      setDueCardCount(due.length);     // Keep original counts for display
       setIsFlipped(false); 
     } else {
       setStudyQueue([]);
       setNewCardCount(0);
       setDueCardCount(0);
     }
-  }, [selectedDeckId, getDueCardsForDeck]);
+  }, [selectedDeckId, getDueCardsForDeck, userSettings.shuffleStudyQueue]); // Added userSettings.shuffleStudyQueue
 
   useEffect(() => {
     initializeStudySession();
-  }, [initializeStudySession]);
+  }, [initializeStudySession]); // initializeStudySession already depends on shuffleStudyQueue
 
   useEffect(() => {
     if (studyQueue.length > 0) {
@@ -77,7 +83,7 @@ export default function StudyView() {
           } else {
               setCurrentCard(null); // No more cards
           }
-          // Update counts after processing this card
+          // Update counts after processing this card (these counts reflect remaining in original categories, not shuffled queue)
           if (selectedDeckId) {
             const { due, newCards } = getDueCardsForDeck(selectedDeckId);
             setNewCardCount(newCards.length);
@@ -136,6 +142,12 @@ export default function StudyView() {
   const toggleSwapFrontBack = () => {
     updateUserSettings({ swapFrontBack: !userSettings.swapFrontBack });
   };
+
+  const toggleShuffleStudyQueue = () => {
+    updateUserSettings({ shuffleStudyQueue: !userSettings.shuffleStudyQueue });
+    // Re-initialize the study session with the new shuffle setting
+    // The useEffect for initializeStudySession will pick this up via its dependency on userSettings.shuffleStudyQueue
+  };
   
   const dismissTooltip = () => {
     updateUserSettings({ showStudyControlsTooltip: false });
@@ -181,6 +193,18 @@ export default function StudyView() {
                   id="swap-front-back"
                   checked={userSettings.swapFrontBack}
                   onCheckedChange={toggleSwapFrontBack}
+                />
+              </div>
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="cursor-pointer">
+              <div className="flex items-center justify-between w-full">
+                <Label htmlFor="shuffle-study-queue" className="flex items-center cursor-pointer">
+                  <Shuffle className="mr-2 h-4 w-4" /> {t('shuffleCards')}
+                </Label>
+                <Switch
+                  id="shuffle-study-queue"
+                  checked={userSettings.shuffleStudyQueue}
+                  onCheckedChange={toggleShuffleStudyQueue}
                 />
               </div>
             </DropdownMenuItem>
