@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, type ChangeEvent } from 'react';
@@ -67,12 +68,12 @@ export default function CreateDeckDialog({ isOpen, onOpenChange }: CreateDeckDia
 
       if (parsedCards.length > 0) {
         importCardsToDeck(newDeck.id, parsedCards);
-        toast({ title: "Success", description: `Deck "${newDeck.name}" created with ${parsedCards.length} cards.` });
+        toast({ title: "Success", description: t('deckCreatedWithCards', { deckName: newDeck.name, count: parsedCards.length }) });
       } else {
-        toast({ title: "Success", description: `Deck "${newDeck.name}" created. No valid cards found in file.` });
+        toast({ title: "Success", description: t('deckCreatedNoValidCards', { deckName: newDeck.name }) });
       }
     } else {
-      toast({ title: "Success", description: `Deck "${newDeck.name}" created.` });
+      toast({ title: "Success", description: t('deckCreated', { deckName: newDeck.name }) });
     }
 
     setDeckName('');
@@ -101,10 +102,15 @@ export default function CreateDeckDialog({ isOpen, onOpenChange }: CreateDeckDia
             />
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="card-file" className="text-right">
-              {t('importCards')}
+            <Label htmlFor="card-file" className="text-right col-span-4 text-left mb-[-0.5rem] font-semibold">
+              {t('optionalImportTitle')}
             </Label>
-            <div className="col-span-3">
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4 mt-1">
+            <Label htmlFor="card-file" className="text-right sr-only"> {/* Visually hidden, but good for accessibility */}
+              {t('optionalImportTitle')}
+            </Label>
+            <div className="col-span-4">
                <Input id="card-file" type="file" accept=".csv,.txt" onChange={handleFileChange} className="mb-1" />
                {fileName && <p className="text-sm text-muted-foreground">{fileName}</p>}
             </div>

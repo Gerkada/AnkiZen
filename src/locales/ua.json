@@ -1,3 +1,4 @@
+
 {
   "appName": "АнкіДзен",
   "decks": "Колоди",
@@ -7,6 +8,7 @@
   "deckName": "Назва колоди",
   "createDeck": "Створити колоду",
   "importCards": "Імпорт карток (CSV/TXT)",
+  "optionalImportTitle": "Опціонально: Імпортувати картки з файлу",
   "importInstructions": "Формат: Кандзі/Слово,Читання,Переклад (одна картка на рядок)",
   "renameDeck": "Перейменувати колоду",
   "deleteDeck": "Видалити колоду",
@@ -47,5 +49,8 @@
   "delete": "Видалити",
   "save": "Зберегти",
   "startStudying": "Почати вивчення",
-  "manageCards": "Керувати картками"
+  "manageCards": "Керувати картками",
+  "deckCreated": "Колоду \"{{deckName}}\" створено.",
+  "deckCreatedWithCards": "Колоду \"{{deckName}}\" створено з {{count}} картками.",
+  "deckCreatedNoValidCards": "Колоду \"{{deckName}}\" створено. У файлі не знайдено дійсних карток."
 }

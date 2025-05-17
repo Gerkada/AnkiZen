@@ -1,3 +1,4 @@
+
 {
   "appName": "AnkiZen",
   "decks": "Decks",
@@ -7,6 +8,7 @@
   "deckName": "Deck Name",
   "createDeck": "Create Deck",
   "importCards": "Import Cards (CSV/TXT)",
+  "optionalImportTitle": "Optional: Import Cards from File",
   "importInstructions": "Format: Kanji/Word,Reading,Translation (one card per line)",
   "renameDeck": "Rename Deck",
   "deleteDeck": "Delete Deck",
@@ -47,5 +49,8 @@
   "delete": "Delete",
   "save": "Save",
   "startStudying": "Start Studying",
-  "manageCards": "Manage Cards"
+  "manageCards": "Manage Cards",
+  "deckCreated": "Deck \"{{deckName}}\" created.",
+  "deckCreatedWithCards": "Deck \"{{deckName}}\" created with {{count}} cards.",
+  "deckCreatedNoValidCards": "Deck \"{{deckName}}\" created. No valid cards found in file."
 }
