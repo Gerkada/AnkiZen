@@ -52,5 +52,7 @@
   "manageCards": "Керувати картками",
   "deckCreated": "Колоду \"{{deckName}}\" створено.",
   "deckCreatedWithCards": "Колоду \"{{deckName}}\" створено з {{count}} картками.",
-  "deckCreatedNoValidCards": "Колоду \"{{deckName}}\" створено. У файлі не знайдено дійсних карток."
+  "deckCreatedNoValidCards": "Колоду \"{{deckName}}\" створено. У файлі не знайдено дійсних карток.",
+  "searchDecksPlaceholder": "Шукати колоди...",
+  "noDecksMatchSearch": "Немає колод, що відповідають вашому пошуку."
 }

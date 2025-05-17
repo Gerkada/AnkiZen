@@ -52,5 +52,7 @@
   "manageCards": "Manage Cards",
   "deckCreated": "Deck \"{{deckName}}\" created.",
   "deckCreatedWithCards": "Deck \"{{deckName}}\" created with {{count}} cards.",
-  "deckCreatedNoValidCards": "Deck \"{{deckName}}\" created. No valid cards found in file."
+  "deckCreatedNoValidCards": "Deck \"{{deckName}}\" created. No valid cards found in file.",
+  "searchDecksPlaceholder": "Search decks...",
+  "noDecksMatchSearch": "No decks match your search."
 }
