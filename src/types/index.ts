@@ -38,7 +38,7 @@ export interface UserSettings {
   shuffleStudyQueue: boolean;
 }
 
-export type AppView = 'deck-list' | 'study' | 'edit-cards' | 'test';
+export type AppView = 'deck-list' | 'study' | 'edit-cards' | 'test' | 'statistics';
 
 export type SRSGrade = 'again' | 'hard' | 'good' | 'easy';
 

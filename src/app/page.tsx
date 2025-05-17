@@ -5,7 +5,8 @@ import AppHeader from '@/components/AppHeader';
 import DeckList from '@/components/deck/DeckList';
 import StudyView from '@/components/study/StudyView';
 import EditCardsView from '@/components/edit/EditCardsView';
-import TestView from '@/components/test/TestView'; // Added TestView import
+import TestView from '@/components/test/TestView';
+import StatisticsView from '@/components/stats/StatisticsView'; // Added StatisticsView import
 import { useApp } from '@/contexts/AppContext';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -40,7 +41,9 @@ export default function Home() {
       case 'edit-cards':
         return <EditCardsView />;
       case 'test':
-        return <TestView />; // Added case for TestView
+        return <TestView />;
+      case 'statistics': // Added case for StatisticsView
+        return <StatisticsView />;
       case 'deck-list':
       default:
         return <DeckList />;
@@ -59,4 +62,3 @@ export default function Home() {
     </div>
   );
 }
-
