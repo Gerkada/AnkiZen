@@ -8,13 +8,13 @@ import { useLanguage } from '@/contexts/LanguageProvider';
 import Flashcard from './Flashcard';
 import StudyControls from './StudyControls';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, RotateCcw, Repeat, Settings, XCircle, Shuffle } from 'lucide-react'; // Added Shuffle icon
+import { ArrowLeft, RotateCcw, Repeat, Settings, XCircle, Shuffle } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { shuffleArray } from '@/lib/utils'; // Import shuffleArray
+import { shuffleArray } from '@/lib/utils';
 
 export default function StudyView() {
   const { 
@@ -25,7 +25,8 @@ export default function StudyView() {
     setCurrentView, 
     resetDeckProgress,
     userSettings,
-    updateUserSettings
+    updateUserSettings,
+    updateDeck // Added for updating deck settings
   } = useApp();
   const { t } = useLanguage();
 
@@ -39,7 +40,7 @@ export default function StudyView() {
   const deck = useMemo(() => selectedDeckId ? getDeckById(selectedDeckId) : null, [selectedDeckId, getDeckById]);
 
   const initializeStudySession = useCallback(() => {
-    if (selectedDeckId) {
+    if (deck && selectedDeckId) { // Ensure deck is available
       const { due, newCards } = getDueCardsForDeck(selectedDeckId);
       
       let sessionCards = [...newCards, ...due];
@@ -48,19 +49,19 @@ export default function StudyView() {
       }
       
       setStudyQueue(sessionCards); 
-      setNewCardCount(newCards.length); // Keep original counts for display
-      setDueCardCount(due.length);     // Keep original counts for display
+      setNewCardCount(newCards.length);
+      setDueCardCount(due.length);    
       setIsFlipped(false); 
     } else {
       setStudyQueue([]);
       setNewCardCount(0);
       setDueCardCount(0);
     }
-  }, [selectedDeckId, getDueCardsForDeck, userSettings.shuffleStudyQueue]); // Added userSettings.shuffleStudyQueue
+  }, [deck, selectedDeckId, getDueCardsForDeck, userSettings.shuffleStudyQueue]);
 
   useEffect(() => {
     initializeStudySession();
-  }, [initializeStudySession]); // initializeStudySession already depends on shuffleStudyQueue
+  }, [initializeStudySession]);
 
   useEffect(() => {
     if (studyQueue.length > 0) {
@@ -74,16 +75,14 @@ export default function StudyView() {
   const handleGradeSelect = useCallback((grade: SRSGrade) => {
     if (currentCard) {
       reviewCard(currentCard.id, grade);
-      // Advance the queue and update counts
       setStudyQueue(prev => {
           const newQueue = prev.slice(1);
           if (newQueue.length > 0) {
-              setCurrentCard(newQueue[0]); // Set next card
-              setIsFlipped(false); // Ensure it's not flipped
+              setCurrentCard(newQueue[0]); 
+              setIsFlipped(false); 
           } else {
-              setCurrentCard(null); // No more cards
+              setCurrentCard(null); 
           }
-          // Update counts after processing this card (these counts reflect remaining in original categories, not shuffled queue)
           if (selectedDeckId) {
             const { due, newCards } = getDueCardsForDeck(selectedDeckId);
             setNewCardCount(newCards.length);
@@ -102,7 +101,7 @@ export default function StudyView() {
       if (!currentCard) return; 
 
       const isAnyModalOpen = showResetConfirm || document.querySelector('[role="dialog"], [role="alertdialog"]');
-      if (isAnyModalOpen && event.target !== document.body) return; // Don't interfere with dialog inputs
+      if (isAnyModalOpen && event.target !== document.body) return;
 
       if (event.key === ' ') {
         event.preventDefault();
@@ -139,14 +138,14 @@ export default function StudyView() {
     }
   };
 
-  const toggleSwapFrontBack = () => {
-    updateUserSettings({ swapFrontBack: !userSettings.swapFrontBack });
+  const handleToggleDeckSwapFrontBack = () => {
+    if (deck) {
+      updateDeck(deck.id, { defaultSwapFrontBack: !deck.defaultSwapFrontBack });
+    }
   };
 
   const toggleShuffleStudyQueue = () => {
     updateUserSettings({ shuffleStudyQueue: !userSettings.shuffleStudyQueue });
-    // Re-initialize the study session with the new shuffle setting
-    // The useEffect for initializeStudySession will pick this up via its dependency on userSettings.shuffleStudyQueue
   };
   
   const dismissTooltip = () => {
@@ -191,8 +190,8 @@ export default function StudyView() {
                 </Label>
                 <Switch
                   id="swap-front-back"
-                  checked={userSettings.swapFrontBack}
-                  onCheckedChange={toggleSwapFrontBack}
+                  checked={deck.defaultSwapFrontBack} // Use deck setting
+                  onCheckedChange={handleToggleDeckSwapFrontBack} // Update deck setting
                 />
               </div>
             </DropdownMenuItem>
@@ -237,7 +236,7 @@ export default function StudyView() {
             isFlipped={isFlipped} 
             onFlip={handleFlip} 
             showAnswerButton={!isFlipped} 
-            swapFrontBack={userSettings.swapFrontBack} 
+            swapFrontBack={deck.defaultSwapFrontBack} // Use deck setting
           />
           {isFlipped && <StudyControls onGradeSelect={handleGradeSelect} />}
         </>

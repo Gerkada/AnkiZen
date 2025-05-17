@@ -22,6 +22,7 @@ export interface Card {
 export interface Deck {
   id: string;
   name: string;
+  defaultSwapFrontBack: boolean; // Added: default direction for this deck
   createdAt: string; // ISO date string
   updatedAt: string; // ISO date string
 }
@@ -30,7 +31,7 @@ export interface UserSettings {
   language: Language;
   theme: Theme;
   lastStudiedDeckId?: string | null;
-  swapFrontBack: boolean;
+  // swapFrontBack: boolean; // Removed: now per-deck
   showStudyControlsTooltip: boolean; 
   shuffleStudyQueue: boolean; // Added for shuffling study queue
 }
@@ -38,3 +39,4 @@ export interface UserSettings {
 export type AppView = 'deck-list' | 'study' | 'edit-cards' | 'test';
 
 export type SRSGrade = 'again' | 'hard' | 'good' | 'easy';
+

@@ -33,6 +33,7 @@ interface AppContextState {
   // Deck Actions
   addDeck: (name: string) => Deck;
   renameDeck: (deckId: string, newName: string) => void;
+  updateDeck: (deckId: string, updates: Partial<Omit<Deck, 'id' | 'createdAt'>>) => void; // Added generic update
   deleteDeck: (deckId: string) => void;
   importCardsToDeck: (deckId: string, parsedCardsData: ParsedCardData[]) => ImportResult;
   
@@ -58,7 +59,7 @@ const initialUserSettings: UserSettings = {
   language: 'en',
   theme: 'light',
   lastStudiedDeckId: null,
-  swapFrontBack: false,
+  // swapFrontBack: false, // Removed
   showStudyControlsTooltip: true,
   shuffleStudyQueue: false,
 };
@@ -79,20 +80,35 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (userSettings.lastStudiedDeckId && !selectedDeckId) {
         setSelectedDeckIdInternal(userSettings.lastStudiedDeckId);
     }
-    let updated = false;
-    const tempSettings = {...userSettings};
-    if (typeof tempSettings.showStudyControlsTooltip === 'undefined') {
-      tempSettings.showStudyControlsTooltip = true;
-      updated = true;
+    // Ensure all user settings have defaults if loaded from older localStorage
+    let updatedUserSettings = false;
+    const tempUserSettings = {...userSettings};
+    if (typeof tempUserSettings.showStudyControlsTooltip === 'undefined') {
+      tempUserSettings.showStudyControlsTooltip = true;
+      updatedUserSettings = true;
     }
-    if (typeof tempSettings.shuffleStudyQueue === 'undefined') {
-      tempSettings.shuffleStudyQueue = false;
-      updated = true;
+    if (typeof tempUserSettings.shuffleStudyQueue === 'undefined') {
+      tempUserSettings.shuffleStudyQueue = false;
+      updatedUserSettings = true;
     }
-    if (updated) {
-      setUserSettingsState(tempSettings);
+    if (updatedUserSettings) {
+      setUserSettingsState(tempUserSettings);
     }
-  }, [userSettings, selectedDeckId, setUserSettingsState]);
+
+    // Ensure all decks have defaultSwapFrontBack
+    let updatedDecks = false;
+    const tempDecks = decks.map(deck => {
+      if (typeof deck.defaultSwapFrontBack === 'undefined') {
+        updatedDecks = true;
+        return { ...deck, defaultSwapFrontBack: false };
+      }
+      return deck;
+    });
+    if (updatedDecks) {
+      setDecks(tempDecks);
+    }
+
+  }, [userSettings, selectedDeckId, setUserSettingsState, decks, setDecks]);
   
   const setCurrentView = useCallback((view: AppView) => {
     setCurrentViewInternal(view);
@@ -110,14 +126,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const addDeck = useCallback((name: string): Deck => {
     const now = formatISO(new Date());
-    const newDeck: Deck = { id: crypto.randomUUID(), name, createdAt: now, updatedAt: now };
+    const newDeck: Deck = { 
+      id: crypto.randomUUID(), 
+      name, 
+      defaultSwapFrontBack: false, // Initialize new setting
+      createdAt: now, 
+      updatedAt: now 
+    };
     setDecks(prev => [...prev, newDeck]);
     return newDeck;
   }, [setDecks]);
 
-  const renameDeck = useCallback((deckId: string, newName: string) => {
-    setDecks(prev => prev.map(d => d.id === deckId ? { ...d, name: newName, updatedAt: formatISO(new Date()) } : d));
+  const updateDeck = useCallback((deckId: string, updates: Partial<Omit<Deck, 'id' | 'createdAt'>>) => {
+    setDecks(prevDecks =>
+      prevDecks.map(d =>
+        d.id === deckId ? { ...d, ...updates, updatedAt: formatISO(new Date()) } : d
+      )
+    );
   }, [setDecks]);
+
+  const renameDeck = useCallback((deckId: string, newName: string) => {
+    updateDeck(deckId, { name: newName });
+  }, [updateDeck]);
+
 
   const deleteDeck = useCallback((deckId: string) => {
     setDecks(prev => prev.filter(d => d.id !== deckId));
@@ -125,7 +156,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (selectedDeckId === deckId) {
       setSelectedDeckId(null);
     }
-  }, [setDecks, setCards, selectedDeckId, setSelectedDeckId]);
+  }, [setDecks, setCards, selectedDeckId, setSelectedDeckId, updateDeck]);
 
   const addCardToDeck = useCallback((deckId: string, front: string, reading: string, translation: string): Card => {
     const newCard = createNewCard(deckId, front, reading, translation);
@@ -147,7 +178,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       } else {
         const newCard = createNewCard(deckId, parsedCard.front, parsedCard.reading, parsedCard.translation);
         cardsToActuallyAdd.push(newCard);
-        existingFronts.add(parsedCard.front.toLowerCase()); // Add to set to handle duplicates within the import file itself
+        existingFronts.add(parsedCard.front.toLowerCase()); 
         newCount++;
       }
     });
@@ -216,18 +247,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
     due.sort((a,b) => parseISO(a.dueDate).getTime() - parseISO(b.dueDate).getTime());
 
     return { due, newCards };
-  }, [cards, getCardsByDeckId]);
+  }, [cards, getCardsByDeckId]); // Removed 'cards' from here as getCardsByDeckId already depends on it
 
 
   const contextValue = useMemo(() => ({
     decks, cards, userSettings, currentView, selectedDeckId, isLoading,
-    addDeck, renameDeck, deleteDeck, importCardsToDeck,
+    addDeck, renameDeck, updateDeck, deleteDeck, importCardsToDeck,
     addCardToDeck, updateCard, deleteCard, reviewCard, resetDeckProgress,
     setCurrentView, setSelectedDeckId, updateUserSettings,
     getDeckById, getCardsByDeckId, getDueCardsForDeck
   }), [
     decks, cards, userSettings, currentView, selectedDeckId, isLoading,
-    addDeck, renameDeck, deleteDeck, importCardsToDeck,
+    addDeck, renameDeck, updateDeck, deleteDeck, importCardsToDeck,
     addCardToDeck, updateCard, deleteCard, reviewCard, resetDeckProgress,
     setCurrentView, setSelectedDeckId, updateUserSettings,
     getDeckById, getCardsByDeckId, getDueCardsForDeck

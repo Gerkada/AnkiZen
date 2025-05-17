@@ -2,27 +2,25 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import type { Card as CardType } from '@/types';
+import type { Card as CardType, Deck } from '@/types'; // Import Deck type
 import { useApp } from '@/contexts/AppContext';
 import { useLanguage } from '@/contexts/LanguageProvider';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Lightbulb } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { shuffleArray } from '@/lib/utils'; // Import shared shuffle function
+import { shuffleArray } from '@/lib/utils';
 
 interface TestOption {
-  cardId: string; // Original card ID for the translation (can be same as question for correct option)
+  cardId: string;
   text: string;
   isCorrect: boolean;
 }
 
-// Helper function to shuffle an array - MOVED TO LIB/UTILS.TS
-
 const MIN_CARDS_FOR_TEST = 4;
 
 export default function TestView() {
-  const { selectedDeckId, getDeckById, getCardsByDeckId, setCurrentView, userSettings } = useApp();
+  const { selectedDeckId, getDeckById, getCardsByDeckId, setCurrentView } = useApp(); // Removed userSettings
   const { t } = useLanguage();
 
   const [deckCards, setDeckCards] = useState<CardType[]>([]);
@@ -36,14 +34,12 @@ export default function TestView() {
   const [isTestOver, setIsTestOver] = useState(false);
   const [showHint, setShowHint] = useState(false);
 
-  const deck = useMemo(() => selectedDeckId ? getDeckById(selectedDeckId) : null, [selectedDeckId, getDeckById]);
+  const deck: Deck | null = useMemo(() => selectedDeckId ? getDeckById(selectedDeckId) : null, [selectedDeckId, getDeckById]);
 
-  // Effect 1: Initialize/reset deck and basic test state when selectedDeckId changes
   useEffect(() => {
     if (selectedDeckId) {
       const cardsForDeck = getCardsByDeckId(selectedDeckId);
       setDeckCards(cardsForDeck);
-      // Reset all test-specific state for the new deck
       setAskedCardIds([]);
       setCorrectCount(0);
       setIncorrectCount(0);
@@ -54,7 +50,6 @@ export default function TestView() {
       setIsAnswered(false);
       setShowHint(false);
     } else {
-      // Clear if no deck is selected
       setDeckCards([]);
       setAskedCardIds([]);
       setCorrectCount(0);
@@ -70,7 +65,7 @@ export default function TestView() {
 
   const loadNextQuestion = useCallback(() => {
     if (!deck || deckCards.length < MIN_CARDS_FOR_TEST) {
-      setIsTestOver(true); // Not enough cards in general or from the start
+      setIsTestOver(true);
       return;
     }
 
@@ -86,15 +81,18 @@ export default function TestView() {
     const randomQuestionCard = availableCards[Math.floor(Math.random() * availableCards.length)];
     setQuestionCard(randomQuestionCard);
     setAskedCardIds(prev => [...prev, randomQuestionCard.id]);
+    
+    // Use deck's defaultSwapFrontBack setting
+    const swapFrontBackForTest = deck.defaultSwapFrontBack;
 
     const correctAnswer: TestOption = {
       cardId: randomQuestionCard.id,
-      text: userSettings.swapFrontBack ? randomQuestionCard.front : randomQuestionCard.translation,
+      text: swapFrontBackForTest ? randomQuestionCard.front : randomQuestionCard.translation,
       isCorrect: true,
     };
 
     const incorrectOptionsPool = deckCards.filter(card => card.id !== randomQuestionCard.id)
-                                         .map(card => userSettings.swapFrontBack ? card.front : card.translation)
+                                         .map(card => swapFrontBackForTest ? card.front : card.translation)
                                          .filter((text, index, self) => 
                                              text !== correctAnswer.text && self.indexOf(text) === index);
     
@@ -116,20 +114,18 @@ export default function TestView() {
       }
     }
 
-
     setOptions(currentOptions.slice(0, MIN_CARDS_FOR_TEST)); 
     setIsAnswered(false);
     setFeedback(null);
-    setShowHint(false); // Reset hint visibility for the new question
-  }, [deck, deckCards, askedCardIds, userSettings.swapFrontBack, t]);
+    setShowHint(false);
+  }, [deck, deckCards, askedCardIds, t]);
 
 
-  // Effect 2: Load the first question once deckCards is ready for a new test.
   useEffect(() => {
-    if (deckCards.length > 0 && deckCards.length >= MIN_CARDS_FOR_TEST && !isTestOver && !questionCard && askedCardIds.length === 0) {
+    if (deck && deckCards.length > 0 && deckCards.length >= MIN_CARDS_FOR_TEST && !isTestOver && !questionCard && askedCardIds.length === 0) {
       loadNextQuestion();
     }
-  }, [deckCards, isTestOver, questionCard, askedCardIds, loadNextQuestion]);
+  }, [deck, deckCards, isTestOver, questionCard, askedCardIds, loadNextQuestion]);
 
 
   const handleAnswer = (option: TestOption) => {
@@ -195,8 +191,7 @@ export default function TestView() {
               setQuestionCard(null); 
               setOptions([]);
               setShowHint(false);
-              // Need to call loadNextQuestion if deckCards.length >= MIN_CARDS_FOR_TEST
-              // This will be handled by the useEffect dependency on askedCardIds.length === 0 and !questionCard
+              // loadNextQuestion will be called by useEffect if conditions are met
             }} className="w-full">{t('restartTest')}</Button>
             <Button variant="outline" onClick={() => setCurrentView('deck-list')} className="w-full">
               {t('decks')}
@@ -207,6 +202,7 @@ export default function TestView() {
     );
   }
 
+  const swapFrontBackForTest = deck.defaultSwapFrontBack;
 
   return (
     <div className="flex flex-col items-center p-4 md:p-6 space-y-6">
@@ -215,16 +211,16 @@ export default function TestView() {
           <ArrowLeft className="mr-2 h-4 w-4" /> {t('decks')}
         </Button>
         <h2 className="text-2xl font-semibold">{t('testMode')} - {deck.name}</h2>
-        <div className="w-20"> {/* Placeholder for symmetry or future use */} </div>
+        <div className="w-20"> {/* Placeholder */} </div>
       </div>
 
       {questionCard ? (
         <Card className="w-full max-w-xl">
           <CardHeader className="text-center">
             <CardTitle className="text-3xl py-8 min-h-[10rem] flex items-center justify-center">
-              {userSettings.swapFrontBack ? questionCard.translation : questionCard.front}
+              {swapFrontBackForTest ? questionCard.translation : questionCard.front}
             </CardTitle>
-            {questionCard.reading && !showHint && !isAnswered && (
+            {questionCard.reading && !swapFrontBackForTest && !showHint && !isAnswered && ( // Show hint only if front is not reading
               <Button 
                 variant="outline" 
                 size="sm" 
@@ -234,7 +230,7 @@ export default function TestView() {
                 <Lightbulb className="mr-2 h-4 w-4" /> {t('showHint')}
               </Button>
             )}
-            {showHint && questionCard.reading && (
+            {showHint && questionCard.reading && !swapFrontBackForTest && (
               <p className="text-muted-foreground mt-2 text-lg">{questionCard.reading}</p>
             )}
           </CardHeader>
