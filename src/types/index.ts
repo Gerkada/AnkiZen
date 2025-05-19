@@ -30,6 +30,9 @@ export interface Deck {
   newCardsPerDay: number; // Max new cards to introduce per day
   dailyNewCardsIntroduced: number; // How many new cards already introduced today for this deck
   lastSessionDate: string; // ISO date string of the last day new cards were introduced
+  maxReviewsPerDay: number; // Max total cards (new + due) to review in one session for this deck
+  initialGoodInterval: number; // Initial interval in days for a 'good' rating on a new card
+  initialEasyInterval: number; // Initial interval in days for an 'easy' rating on a new card
   createdAt: string; // ISO date string
   updatedAt: string; // ISO date string
 }

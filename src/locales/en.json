@@ -161,6 +161,8 @@
   "helpStudyingCardsSettingsSwap": "<strong>Swap Front/Back:</strong> Toggle in the study screen's settings menu to change if the front or translation is shown first for that deck.",
   "helpStudyingCardsSettingsShuffle": "<strong>Shuffle Cards:</strong> Enable to shuffle the order of due and new cards in your study session.",
   "helpStudyingCardsSettingsNewPerDay": "<strong>New Cards Per Day:</strong> Set the maximum number of new cards you want to learn from this deck each day.",
+  "helpStudyingCardsSettingsMaxReviews": "<strong>Max Reviews Per Day:</strong> Set the maximum total cards (new + due) for a study session for this deck.",
+  "helpStudyingCardsSettingsInitialIntervals": "<strong>Initial Intervals:</strong> Customize the first review interval (in days) for 'Good' and 'Easy' ratings on new cards.",
   "helpManagingCardsP1": "Click \"Manage Cards\" on a deck to go to the Edit View. Here you can:",
   "helpManagingCardsAddNew": "<strong>Add New Cards:</strong> Use the \"Add Card\" button.",
   "helpManagingCardsEditExisting": "<strong>Edit Existing Cards:</strong> Click the edit icon (pencil) next to a card.",
@@ -168,7 +170,7 @@
   "helpTestModeIntro": "The Test Mode allows you to quiz yourself on the cards in a deck. Access it by clicking \"Take Test\" on a deck card.",
   "helpTestModeConfigurationTitle": "Test Configuration:",
   "helpTestModeConfigQuestionField": "<strong>Show as Question:</strong> Choose what information (Term/Kanji, Reading, or Definition) is presented as the question.",
-  "helpTestModeConfigAnswerField": "<strong>Select Answer Type:</strong> Choose what type of information the multiple-choice/typed answer will be based on.",
+  "helpTestModeConfigAnswerField": "<strong>Answer Represents:</strong> Choose what type of information the answer will be based on (for multiple choice or typed input).",
   "helpTestModeConfigTestVariant": "<strong>Test Type:</strong> Choose between 'Multiple Choice' or 'Type Answer'.",
   "helpTestModeConfigTestSize": "<strong>Test Size:</strong> Select how many cards to include in the test (e.g., 10, 20, 50, or All Cards).",
   "helpTestModeConfigHintToggle": "<strong>Toggle Hints:</strong> Use the lightbulb icon in the Test Mode header to turn hints on or off. When on, a relevant hint (e.g., reading for a Kanji question) may be displayed. Hints are off by default.",
@@ -222,6 +224,9 @@
   "testTypeAnswerPlaceholder": "Type your answer here...",
   "submitAnswer": "Submit Answer",
   "testCorrectAnswerWas": "Correct answer was",
-  "correctAnswerFeedback": "Correct!"
+  "correctAnswerFeedback": "Correct!",
+  "maxReviewsPerDay": "Max Reviews Per Day",
+  "initialGoodInterval": "Initial 'Good' Interval (days)",
+  "initialEasyInterval": "Initial 'Easy' Interval (days)",
+  "sessionLimit": "Session limit"
 }
-

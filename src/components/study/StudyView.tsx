@@ -8,15 +8,15 @@ import { useLanguage } from '@/contexts/LanguageProvider';
 import Flashcard from './Flashcard';
 import StudyControls from './StudyControls';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input'; // Added for new card limit setting
-import { ArrowLeft, RotateCcw, Repeat, Settings, XCircle, Shuffle, ListChecks } from 'lucide-react'; // Added ListChecks
+import { Input } from '@/components/ui/input';
+import { ArrowLeft, RotateCcw, Repeat, Settings, XCircle, Shuffle, ListChecks, BookCopy, CalendarDays } from 'lucide-react'; // Added BookCopy, CalendarDays
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { shuffleArray } from '@/lib/utils';
-import { formatISO, startOfDay } from 'date-fns'; // For daily reset
+import { formatISO, startOfDay } from 'date-fns'; 
 
 const LEARNING_THRESHOLD_DAYS = 7; 
 
@@ -30,7 +30,7 @@ export default function StudyView() {
     resetDeckProgress,
     userSettings,
     updateUserSettings,
-    updateDeck, // Used for daily reset and new card limit
+    updateDeck,
     getCardsByDeckId
   } = useApp();
   const { t } = useLanguage();
@@ -41,13 +41,15 @@ export default function StudyView() {
   const [sessionNewCardCount, setSessionNewCardCount] = useState(0);
   const [sessionDueCardCount, setSessionDueCardCount] = useState(0);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
-  const [newCardsPerDayInput, setNewCardsPerDayInput] = useState<string | number>('');
-
-
-  // Initial deck fetch, potentially stale for daily stats until effect below runs
+  
   const deck = useMemo(() => selectedDeckId ? getDeckById(selectedDeckId) : null, [selectedDeckId, getDeckById]);
 
-  // Effect for daily reset of deck stats
+  // Local state for deck settings inputs to avoid direct binding to context that might cause rapid updates
+  const [newCardsPerDayInput, setNewCardsPerDayInput] = useState<string | number>('');
+  const [maxReviewsPerDayInput, setMaxReviewsPerDayInput] = useState<string | number>('');
+  const [initialGoodIntervalInput, setInitialGoodIntervalInput] = useState<string | number>('');
+  const [initialEasyIntervalInput, setInitialEasyIntervalInput] = useState<string | number>('');
+
   useEffect(() => {
     if (deck && selectedDeckId) {
       const todayISO = formatISO(startOfDay(new Date()));
@@ -56,15 +58,18 @@ export default function StudyView() {
           dailyNewCardsIntroduced: 0,
           lastSessionDate: todayISO,
         });
-        // The `deck` object used by `initializeStudySession` will be updated on the next render cycle
       }
-      setNewCardsPerDayInput(deck.newCardsPerDay); // Sync input with current deck setting
+      // Initialize local input states from deck settings
+      setNewCardsPerDayInput(deck.newCardsPerDay);
+      setMaxReviewsPerDayInput(deck.maxReviewsPerDay);
+      setInitialGoodIntervalInput(deck.initialGoodInterval);
+      setInitialEasyIntervalInput(deck.initialEasyInterval);
     }
   }, [deck, selectedDeckId, updateDeck]);
 
 
   const initializeStudySession = useCallback(() => {
-    if (deck && selectedDeckId) { // `deck` here will be the potentially updated one after daily reset
+    if (deck && selectedDeckId) {
       const { due, newCards: limitedNewCards } = getDueCardsForDeck(selectedDeckId);
       
       let sessionCards = [...limitedNewCards, ...due];
@@ -75,7 +80,6 @@ export default function StudyView() {
       setStudyQueue(sessionCards); 
       setSessionNewCardCount(limitedNewCards.length);
       setSessionDueCardCount(due.length);    
-      // setIsFlipped(false); // This is handled when currentCard changes
     } else {
       setStudyQueue([]);
       setSessionNewCardCount(0);
@@ -83,7 +87,6 @@ export default function StudyView() {
     }
   }, [deck, selectedDeckId, getDueCardsForDeck, userSettings.shuffleStudyQueue]);
 
-  // Re-initialize session if deck (due to daily reset or settings change) or shuffle preference changes
   useEffect(() => {
     initializeStudySession();
   }, [initializeStudySession]);
@@ -100,14 +103,8 @@ export default function StudyView() {
 
   const handleGradeSelect = useCallback((grade: SRSGrade) => {
     if (currentCard) {
-      reviewCard(currentCard.id, grade); // This might update deck.dailyNewCardsIntroduced
-      // The queue will update, and subsequent calls to getDueCardsForDeck will reflect the new counts.
-      // isFlipped will be reset by the useEffect hook that responds to studyQueue changes.
-      setStudyQueue(prev => {
-          const newQueue = prev.slice(1);
-          // Session counts will be re-evaluated by initializeStudySession in the next effect cycle if deck changed
-          return newQueue;
-      });
+      reviewCard(currentCard.id, grade);
+      setStudyQueue(prev => prev.slice(1));
     }
   }, [currentCard, reviewCard]);
 
@@ -119,12 +116,14 @@ export default function StudyView() {
       if (!currentCard) return; 
 
       const isAnyModalOpen = showResetConfirm || document.querySelector('[role="dialog"], [role="alertdialog"]');
-      if (isAnyModalOpen && event.target !== document.body && !(event.target instanceof HTMLInputElement)) return; // Allow input in modals/settings
+      const targetIsInput = event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement;
 
-      if (event.key === ' ' && !(event.target instanceof HTMLInputElement)) {
+      if (isAnyModalOpen && !targetIsInput) return;
+
+      if (event.key === ' ' && !targetIsInput) {
         event.preventDefault();
         handleFlip();
-      } else if (isFlipped && !(event.target instanceof HTMLInputElement)) {
+      } else if (isFlipped && !targetIsInput) {
         if (event.key === '1') { event.preventDefault(); handleGradeSelect('again'); } 
         else if (event.key === '2') { event.preventDefault(); handleGradeSelect('hard'); } 
         else if (event.key === '3') { event.preventDefault(); handleGradeSelect('good'); } 
@@ -142,7 +141,6 @@ export default function StudyView() {
   const handleResetProgress = () => {
     if (selectedDeckId) {
       resetDeckProgress(selectedDeckId);
-      // initializeStudySession will be called due to deck state change
       setShowResetConfirm(false);
     }
   };
@@ -161,12 +159,22 @@ export default function StudyView() {
     updateUserSettings({ showStudyControlsTooltip: false });
   };
 
-  const handleNewCardsPerDayChange = (value: string) => {
-    setNewCardsPerDayInput(value);
+  const handleDeckSettingChange = (settingKey: keyof Pick<Deck, 'newCardsPerDay' | 'maxReviewsPerDay' | 'initialGoodInterval' | 'initialEasyInterval'>, value: string) => {
     if (deck) {
       const numValue = parseInt(value, 10);
       if (!isNaN(numValue) && numValue >= 0) {
-        updateDeck(deck.id, { newCardsPerDay: numValue });
+        updateDeck(deck.id, { [settingKey]: numValue });
+        // Update local state for inputs
+        if (settingKey === 'newCardsPerDay') setNewCardsPerDayInput(numValue);
+        if (settingKey === 'maxReviewsPerDay') setMaxReviewsPerDayInput(numValue);
+        if (settingKey === 'initialGoodInterval') setInitialGoodIntervalInput(numValue);
+        if (settingKey === 'initialEasyInterval') setInitialEasyIntervalInput(numValue);
+      } else { // Handle empty string or invalid input by resetting to current deck value or a default
+        const resetValue = deck[settingKey] || 0;
+        if (settingKey === 'newCardsPerDay') setNewCardsPerDayInput(resetValue);
+        if (settingKey === 'maxReviewsPerDay') setMaxReviewsPerDayInput(resetValue);
+        if (settingKey === 'initialGoodInterval') setInitialGoodIntervalInput(resetValue);
+        if (settingKey === 'initialEasyInterval') setInitialEasyIntervalInput(resetValue);
       }
     }
   };
@@ -187,7 +195,7 @@ export default function StudyView() {
       }
     });
     return { underStudyCount: underStudy, learnedCount: learned, totalCount: allDeckCards.length };
-  }, [deck, selectedDeckId, getCardsByDeckId, studyQueue]); // Added studyQueue dependency
+  }, [deck, selectedDeckId, getCardsByDeckId, studyQueue]);
 
 
   if (!deck) {
@@ -203,6 +211,70 @@ export default function StudyView() {
   
   const showTooltip = typeof userSettings.showStudyControlsTooltip === 'boolean' ? userSettings.showStudyControlsTooltip : true;
 
+  const settingsMenuItems = [
+    { 
+      id: 'resetProgress', 
+      labelKey: 'resetProgress', 
+      icon: RotateCcw, 
+      action: () => setShowResetConfirm(true),
+      type: 'button' as const
+    },
+    { 
+      id: 'swapFrontBack', 
+      labelKey: 'swapFrontBack', 
+      icon: Repeat, 
+      checked: deck.defaultSwapFrontBack, 
+      action: handleToggleDeckSwapFrontBack,
+      type: 'switch' as const
+    },
+    { 
+      id: 'shuffleStudyQueue', 
+      labelKey: 'shuffleCards', 
+      icon: Shuffle, 
+      checked: userSettings.shuffleStudyQueue, 
+      action: toggleShuffleStudyQueue,
+      type: 'switch' as const
+    },
+    { type: 'separator' as const, id: 'sep1'},
+    { 
+      id: 'newCardsPerDay', 
+      labelKey: 'newCardsPerDay', 
+      icon: ListChecks, 
+      value: newCardsPerDayInput, 
+      action: (val: string) => handleDeckSettingChange('newCardsPerDay', val),
+      type: 'input' as const,
+      min: "0"
+    },
+    { 
+      id: 'maxReviewsPerDay', 
+      labelKey: 'maxReviewsPerDay', 
+      icon: BookCopy, 
+      value: maxReviewsPerDayInput, 
+      action: (val: string) => handleDeckSettingChange('maxReviewsPerDay', val),
+      type: 'input' as const,
+      min: "0"
+    },
+    { type: 'separator' as const, id: 'sep2'},
+    { 
+      id: 'initialGoodInterval', 
+      labelKey: 'initialGoodInterval', 
+      icon: CalendarDays, 
+      value: initialGoodIntervalInput, 
+      action: (val: string) => handleDeckSettingChange('initialGoodInterval', val),
+      type: 'input' as const,
+      min: "1"
+    },
+    { 
+      id: 'initialEasyInterval', 
+      labelKey: 'initialEasyInterval', 
+      icon: CalendarDays, 
+      value: initialEasyIntervalInput, 
+      action: (val: string) => handleDeckSettingChange('initialEasyInterval', val),
+      type: 'input' as const,
+      min: "1"
+    },
+  ];
+
 
   return (
     <div className="flex flex-col items-center p-4 md:p-6">
@@ -217,51 +289,59 @@ export default function StudyView() {
               <Settings className="h-5 w-5" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-64">
-            <DropdownMenuItem onClick={() => setShowResetConfirm(true)} className="cursor-pointer">
-              <RotateCcw className="mr-2 h-4 w-4" /> {t('resetProgress')}
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="cursor-pointer"> 
-              <div className="flex items-center justify-between w-full">
-                <Label htmlFor="swap-front-back" className="flex items-center cursor-pointer">
-                  <Repeat className="mr-2 h-4 w-4" /> {t('swapFrontBack')}
-                </Label>
-                <Switch
-                  id="swap-front-back"
-                  checked={deck.defaultSwapFrontBack}
-                  onCheckedChange={handleToggleDeckSwapFrontBack}
-                />
-              </div>
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="cursor-pointer">
-              <div className="flex items-center justify-between w-full">
-                <Label htmlFor="shuffle-study-queue" className="flex items-center cursor-pointer">
-                  <Shuffle className="mr-2 h-4 w-4" /> {t('shuffleCards')}
-                </Label>
-                <Switch
-                  id="shuffle-study-queue"
-                  checked={userSettings.shuffleStudyQueue}
-                  onCheckedChange={toggleShuffleStudyQueue}
-                />
-              </div>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
+          <DropdownMenuContent align="end" className="w-72">
             <DropdownMenuLabel>{t('deckSettings')}</DropdownMenuLabel>
-            <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                <div className="flex flex-col space-y-1 w-full">
-                    <Label htmlFor="new-cards-per-day" className="flex items-center text-sm">
-                        <ListChecks className="mr-2 h-4 w-4" /> {t('newCardsPerDay')}
-                    </Label>
-                    <Input
-                        id="new-cards-per-day"
+            {settingsMenuItems.map((item) => {
+              if (item.type === 'separator') {
+                return <DropdownMenuSeparator key={item.id} />;
+              }
+              if (item.type === 'button') {
+                const Icon = item.icon;
+                return (
+                  <DropdownMenuItem key={item.id} onClick={item.action} className="cursor-pointer">
+                    <Icon className="mr-2 h-4 w-4" /> {t(item.labelKey)}
+                  </DropdownMenuItem>
+                );
+              }
+              if (item.type === 'switch') {
+                const Icon = item.icon;
+                return (
+                  <DropdownMenuItem key={item.id} onSelect={(e) => e.preventDefault()} className="cursor-pointer">
+                    <div className="flex items-center justify-between w-full">
+                      <Label htmlFor={item.id} className="flex items-center cursor-pointer">
+                        <Icon className="mr-2 h-4 w-4" /> {t(item.labelKey)}
+                      </Label>
+                      <Switch
+                        id={item.id}
+                        checked={item.checked}
+                        onCheckedChange={item.action as () => void}
+                      />
+                    </div>
+                  </DropdownMenuItem>
+                );
+              }
+              if (item.type === 'input') {
+                const Icon = item.icon;
+                return (
+                  <DropdownMenuItem key={item.id} onSelect={(e) => e.preventDefault()}>
+                    <div className="flex flex-col space-y-1 w-full">
+                      <Label htmlFor={item.id} className="flex items-center text-sm mb-1">
+                        <Icon className="mr-2 h-4 w-4" /> {t(item.labelKey)}
+                      </Label>
+                      <Input
+                        id={item.id}
                         type="number"
-                        min="0"
-                        value={newCardsPerDayInput}
-                        onChange={(e) => handleNewCardsPerDayChange(e.target.value)}
+                        min={item.min}
+                        value={item.value}
+                        onChange={(e) => (item.action as (value: string) => void)(e.target.value)}
                         className="h-8 text-sm"
-                    />
-                </div>
-            </DropdownMenuItem>
+                      />
+                    </div>
+                  </DropdownMenuItem>
+                );
+              }
+              return null;
+            })}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -285,6 +365,9 @@ export default function StudyView() {
           <span>{t('due')}: {sessionDueCardCount}</span>
           <span>{t('dailyNewIntroduced')}: {deck.dailyNewCardsIntroduced}/{deck.newCardsPerDay}</span>
         </div>
+         <div className="mt-1 text-center text-muted-foreground text-xs">
+            ({t('sessionLimit')}: {deck.maxReviewsPerDay})
+        </div>
         <hr className="my-2 border-border" />
         <div className="flex justify-around text-muted-foreground">
           <span>{t('deckUnderStudy')}: {deckStats.underStudyCount}</span>
@@ -296,7 +379,7 @@ export default function StudyView() {
       {currentCard ? (
         <>
           <Flashcard
-            key={currentCard.id} // Add key here
+            key={currentCard.id}
             card={currentCard} 
             isFlipped={isFlipped} 
             onFlip={handleFlip} 
@@ -330,4 +413,3 @@ export default function StudyView() {
     </div>
   );
 }
-

@@ -5,7 +5,11 @@ import { addDays, formatISO, startOfDay } from 'date-fns';
 const MIN_EASE_FACTOR = 1.3;
 const DEFAULT_EASE_FACTOR = 2.5;
 
-export function calculateNextReview(card: Card, grade: SRSGrade): Partial<Card> {
+export function calculateNextReview(
+  card: Card, 
+  grade: SRSGrade,
+  customInitialIntervals?: { good: number; easy: number }
+): Partial<Card> {
   const today = startOfDay(new Date());
   let newInterval = card.interval;
   let newEaseFactor = card.easeFactor;
@@ -19,9 +23,13 @@ export function calculateNextReview(card: Card, grade: SRSGrade): Partial<Card> 
     newRepetitions += 1;
     if (newRepetitions === 1) {
       // First successful repetition
-      if (grade === 'hard') newInterval = 1;
-      else if (grade === 'good') newInterval = 3;
-      else if (grade === 'easy') newInterval = 5;
+      if (grade === 'hard') {
+        newInterval = 1;
+      } else if (grade === 'good') {
+        newInterval = customInitialIntervals?.good ?? 3;
+      } else if (grade === 'easy') {
+        newInterval = customInitialIntervals?.easy ?? 5;
+      }
     } else if (newRepetitions === 2) {
       // Second successful repetition
       if (grade === 'hard') newInterval = Math.max(1, Math.ceil(card.interval * 0.8)); 
@@ -42,7 +50,7 @@ export function calculateNextReview(card: Card, grade: SRSGrade): Partial<Card> 
     }
   }
   
-  if (grade !== 'again' && card.repetitions > 0) {
+  if (grade !== 'again' && card.repetitions > 0) { // This check might be redundant if newRepetitions logic is correct
     newInterval = Math.max(1, newInterval);
   }
 

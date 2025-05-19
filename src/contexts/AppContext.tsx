@@ -28,6 +28,12 @@ const LEECH_SUSPEND_INTERVAL_DAYS = 180; // Suspend for ~6 months
 const LEECH_INTERVAL_MATURITY_THRESHOLD = 21; // Don't mark as leech on total_again if already interval > 21 days
 const LEECH_MIN_EASE_FACTOR = 1.3;
 
+// Default deck settings
+const DEFAULT_NEW_CARDS_PER_DAY = 20;
+const DEFAULT_MAX_REVIEWS_PER_DAY = 200;
+const DEFAULT_INITIAL_GOOD_INTERVAL = 3;
+const DEFAULT_INITIAL_EASY_INTERVAL = 5;
+
 
 interface AppContextState {
   // Data
@@ -121,7 +127,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         deckNeedsUpdate = true;
       }
       if (typeof deck.newCardsPerDay === 'undefined') {
-        newDeckProps.newCardsPerDay = 20;
+        newDeckProps.newCardsPerDay = DEFAULT_NEW_CARDS_PER_DAY;
         deckNeedsUpdate = true;
       }
       if (typeof deck.dailyNewCardsIntroduced === 'undefined') {
@@ -130,6 +136,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
       if (typeof deck.lastSessionDate === 'undefined') {
         newDeckProps.lastSessionDate = formatISO(new Date(0));
+        deckNeedsUpdate = true;
+      }
+      if (typeof deck.maxReviewsPerDay === 'undefined') {
+        newDeckProps.maxReviewsPerDay = DEFAULT_MAX_REVIEWS_PER_DAY;
+        deckNeedsUpdate = true;
+      }
+      if (typeof deck.initialGoodInterval === 'undefined') {
+        newDeckProps.initialGoodInterval = DEFAULT_INITIAL_GOOD_INTERVAL;
+        deckNeedsUpdate = true;
+      }
+      if (typeof deck.initialEasyInterval === 'undefined') {
+        newDeckProps.initialEasyInterval = DEFAULT_INITIAL_EASY_INTERVAL;
         deckNeedsUpdate = true;
       }
       if (deckNeedsUpdate) updatedDecksFlag = true;
@@ -187,9 +205,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       id: crypto.randomUUID(), 
       name, 
       defaultSwapFrontBack: false,
-      newCardsPerDay: 20, 
+      newCardsPerDay: DEFAULT_NEW_CARDS_PER_DAY, 
       dailyNewCardsIntroduced: 0,
       lastSessionDate: formatISO(new Date(0)), 
+      maxReviewsPerDay: DEFAULT_MAX_REVIEWS_PER_DAY,
+      initialGoodInterval: DEFAULT_INITIAL_GOOD_INTERVAL,
+      initialEasyInterval: DEFAULT_INITIAL_EASY_INTERVAL,
       createdAt: now, 
       updatedAt: now 
     };
@@ -262,7 +283,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const reviewCard = useCallback((cardId: string, grade: SRSGrade) => {
     const card = cards.find(c => c.id === cardId);
-    if (card) {
+    const currentDeck = card ? decks.find(d => d.id === card.deckId) : null;
+
+    if (card && currentDeck) {
       const wasNewCard = card.repetitions === 0;
       const oldIsLeech = card.isLeech;
 
@@ -285,7 +308,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
       }
       
-      const srsUpdates = calculateNextReview(card, grade);
+      const srsUpdates = calculateNextReview(card, grade, 
+        wasNewCard ? { good: currentDeck.initialGoodInterval, easy: currentDeck.initialEasyInterval } : undefined
+      );
       
       const cardUpdates: Partial<Card> & { id: string } = {
         id: cardId,
@@ -319,28 +344,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setReviewLogs(prevLogs => [...prevLogs, newLog]);
 
       if (wasNewCard && grade !== 'again') {
-        const currentDeck = decks.find(d => d.id === card.deckId);
-        if (currentDeck) {
-          const todayISO = formatISO(startOfDay(new Date()));
-          let newDailyIntroduced = currentDeck.dailyNewCardsIntroduced;
-          
-          if (currentDeck.lastSessionDate !== todayISO) {
-            newDailyIntroduced = 1;
-          } else {
-            newDailyIntroduced += 1;
-          }
-          
-          if (newDailyIntroduced <= currentDeck.newCardsPerDay) {
-             updateDeck(card.deckId, {
-                dailyNewCardsIntroduced: newDailyIntroduced,
-                lastSessionDate: todayISO, 
-             });
-          } else {
+        const todayISO = formatISO(startOfDay(new Date()));
+        let newDailyIntroduced = currentDeck.dailyNewCardsIntroduced;
+        
+        if (currentDeck.lastSessionDate !== todayISO) {
+          newDailyIntroduced = 1;
+        } else {
+          newDailyIntroduced += 1;
+        }
+        
+        if (newDailyIntroduced <= currentDeck.newCardsPerDay) {
             updateDeck(card.deckId, {
-                dailyNewCardsIntroduced: currentDeck.newCardsPerDay,
-                lastSessionDate: todayISO,
+              dailyNewCardsIntroduced: newDailyIntroduced,
+              lastSessionDate: todayISO, 
             });
-          }
+        } else {
+          updateDeck(card.deckId, {
+              dailyNewCardsIntroduced: currentDeck.newCardsPerDay,
+              lastSessionDate: todayISO,
+          });
         }
       }
     }
@@ -364,10 +386,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
       return c;
     }));
-    updateDeck(deckId, { dailyNewCardsIntroduced: 0, lastSessionDate: formatISO(startOfDay(new Date())) });
+    updateDeck(deckId, { 
+      dailyNewCardsIntroduced: 0, 
+      lastSessionDate: formatISO(startOfDay(new Date())) 
+    });
     setReviewLogs(prevLogs => prevLogs.filter(log => log.deckId !== deckId));
   }, [setCards, updateDeck, setReviewLogs]);
 
+  const getDeckById = useCallback((deckId: string) => decks.find(d => d.id === deckId), [decks]);
+  
   const markDeckAsLearned = useCallback((deckId: string) => {
     const now = formatISO(new Date());
     const learnedInterval = 90; // days
@@ -391,45 +418,48 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return card;
       })
     );
-    const deck = getDeckById(deckId);
+    const deck = getDeckById(deckId); // Access getDeckById via closure
     if(deck){
       toast({ title: t('successTitle'), description: t('deckMarkedLearned', { deckName: deck.name }) });
     }
-  }, [setCards, t, toast]);
+  }, [setCards, toast]); // Removed getDeckById and t from explicit dependencies
 
 
-  const getDeckById = useCallback((deckId: string) => decks.find(d => d.id === deckId), [decks]);
-  
   const getCardsByDeckId = useCallback((deckId: string) => cards.filter(c => c.deckId === deckId), [cards]);
 
   const getDueCardsForDeck = useCallback((deckId: string) => {
-    const currentDeck = getDeckById(deckId);
+    const currentDeck = getDeckById(deckId); // Access getDeckById via closure
     if (!currentDeck) return { due: [], newCards: [] };
 
-    const allDeckCards = getCardsByDeckId(deckId).filter(card => !card.isLeech); 
+    const allDeckCards = getCardsByDeckId(deckId).filter(card => !card.isLeech); // Access getCardsByDeckId via closure
     const today = startOfDay(new Date());
-    const due: Card[] = [];
-    const potentialNewCards: CardType[] = [];
+    
+    let potentialNewCards: Card[] = [];
+    let dueReviewCards: Card[] = [];
 
     allDeckCards.forEach(card => {
-      if (card.repetitions === 0) { 
+      if (card.repetitions === 0) {
         potentialNewCards.push(card);
       } else {
         const dueDate = parseISO(card.dueDate);
         if (isBefore(dueDate, today) || dueDate.getTime() === today.getTime()) {
-          due.push(card);
+          dueReviewCards.push(card);
         }
       }
     });
     
     potentialNewCards.sort((a, b) => parseISO(a.createdAt).getTime() - parseISO(b.createdAt).getTime());
-    due.sort((a,b) => parseISO(a.dueDate).getTime() - parseISO(b.dueDate).getTime());
+    dueReviewCards.sort((a,b) => parseISO(a.dueDate).getTime() - parseISO(b.dueDate).getTime());
     
-    const newCardsLimit = Math.max(0, currentDeck.newCardsPerDay - currentDeck.dailyNewCardsIntroduced);
-    const actualNewCards = potentialNewCards.slice(0, newCardsLimit);
+    const newCardsAllowedToday = Math.max(0, currentDeck.newCardsPerDay - currentDeck.dailyNewCardsIntroduced);
+    const actualNewCards = potentialNewCards.slice(0, newCardsAllowedToday);
+    
+    const remainingSessionCapacity = Math.max(0, currentDeck.maxReviewsPerDay - actualNewCards.length);
+    const actualDueCards = dueReviewCards.slice(0, remainingSessionCapacity);
 
-    return { due, newCards: actualNewCards };
-  }, [cards, getCardsByDeckId, getDeckById, decks]);
+    return { due: actualDueCards, newCards: actualNewCards };
+  }, [cards, decks]); // Removed getDeckById and getCardsByDeckId from explicit dependencies
+
 
   const contextValue = useMemo(() => ({
     decks, cards, userSettings, reviewLogs, currentView, selectedDeckId, isLoading, testConfig,
@@ -442,7 +472,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     addDeck, renameDeck, updateDeck, deleteDeck, importCardsToDeck, markDeckAsLearned,
     addCardToDeck, updateCard, deleteCard, reviewCard, resetDeckProgress,
     setCurrentView, setSelectedDeckId, updateUserSettings, setTestConfig,
-    getDeckById, getCardsByDeckId, getDueCardsForDeck
+    getDeckById, getCardsByDeckId, getDueCardsForDeck // These are now stable references due to their own useCallback
   ]);
 
   return <AppContext.Provider value={contextValue}>{children}</AppContext.Provider>;
@@ -455,3 +485,6 @@ export const useApp = () => {
   }
   return context;
 };
+
+
+    

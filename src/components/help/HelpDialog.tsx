@@ -68,6 +68,8 @@ export default function HelpDialog({ isOpen, onOpenChange }: HelpDialogProps) {
             <li dangerouslySetInnerHTML={{ __html: t('helpStudyingCardsSettingsSwap') }}></li>
             <li dangerouslySetInnerHTML={{ __html: t('helpStudyingCardsSettingsShuffle') }}></li>
             <li dangerouslySetInnerHTML={{ __html: t('helpStudyingCardsSettingsNewPerDay') }}></li>
+            <li dangerouslySetInnerHTML={{ __html: t('helpStudyingCardsSettingsMaxReviews') }}></li>
+            <li dangerouslySetInnerHTML={{ __html: t('helpStudyingCardsSettingsInitialIntervals') }}></li>
           </ul>
         </>
       ),
@@ -184,4 +186,3 @@ export default function HelpDialog({ isOpen, onOpenChange }: HelpDialogProps) {
     </Dialog>
   );
 }
-
