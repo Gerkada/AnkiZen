@@ -22,7 +22,7 @@ export interface Card {
   // Card states
   isSuspended?: boolean;
   buriedUntil?: string | null; // ISO date string for when the card is no longer buried
-  tags: string[]; // Added for card tagging
+  tags: string[]; 
   createdAt: string; // ISO date string
   updatedAt: string; // ISO date string
 }
@@ -31,13 +31,13 @@ export interface Deck {
   id: string;
   name: string;
   defaultSwapFrontBack: boolean;
-  newCardsPerDay: number; // Max new cards to introduce per day
-  dailyNewCardsIntroduced: number; // How many new cards already introduced today for this deck
-  lastSessionDate: string; // ISO date string of the last day new cards were introduced
-  maxReviewsPerDay: number; // Max total cards (new + due) to review in one session for this deck
-  initialGoodInterval: number; // Initial interval in days for a 'good' rating on a new card
-  initialEasyInterval: number; // Initial interval in days for an 'easy' rating on a new card
-  lapseAgainInterval: number; // Interval in days when 'Again' is pressed after a card has been learned
+  newCardsPerDay: number; 
+  dailyNewCardsIntroduced: number; 
+  lastSessionDate: string; 
+  maxReviewsPerDay: number; 
+  initialGoodInterval: number; 
+  initialEasyInterval: number; 
+  lapseAgainInterval: number; 
   createdAt: string; // ISO date string
   updatedAt: string; // ISO date string
 }
@@ -68,4 +68,12 @@ export type TestVariant = 'multipleChoice' | 'typedInput';
 export type TestSizeOption = '10' | '20' | '50' | 'all';
 export interface TestConfig {
   isMasteryTest?: boolean;
+}
+
+// Custom Study Session specific types
+export interface CustomStudyParams {
+  deckId: string;
+  tagsToInclude: string[];
+  limit: number;
+  mode: 'study' | 'test';
 }

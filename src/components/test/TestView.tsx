@@ -6,7 +6,7 @@ import type { Card as CardType, Deck, TestField, TestSizeOption } from '@/types'
 import { useApp } from '@/contexts/AppContext';
 import { useLanguage } from '@/contexts/LanguageProvider';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, LightbulbOff, Lightbulb, CheckCircle2, ShieldAlert, Send } from 'lucide-react';
+import { ArrowLeft, LightbulbOff, Lightbulb, CheckCircle2, ShieldAlert, Send, Filter } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -29,7 +29,7 @@ interface TypedFeedback {
   correctAnswer: string;
 }
 
-const MIN_CARDS_FOR_MULTIPLE_CHOICE_OPTIONS = 4; // Min cards in deck to generate 3 incorrect options
+const MIN_CARDS_FOR_MULTIPLE_CHOICE_OPTIONS = 4; 
 const DEFAULT_TEST_SIZE: TestSizeOption = '10';
 
 export default function TestView() {
@@ -42,7 +42,9 @@ export default function TestView() {
     testConfig,
     setTestConfig,
     markDeckAsLearned,
-    isLoading: isAppContextLoading 
+    isLoading: isAppContextLoading,
+    customStudyParams,
+    setCustomStudyParams
   } = appContext;
   const { t } = useLanguage();
   const { toast } = useToast();
@@ -52,12 +54,12 @@ export default function TestView() {
   const [currentTestQueue, setCurrentTestQueue] = useState<CardType[]>([]);
 
   const [questionCard, setQuestionCard] = useState<CardType | null>(null);
-  const [options, setOptions] = useState<TestOption[]>([]); // For multiple choice
-  const [typedAnswer, setTypedAnswer] = useState(''); // For typed input
+  const [options, setOptions] = useState<TestOption[]>([]); 
+  const [typedAnswer, setTypedAnswer] = useState(''); 
   const [correctCount, setCorrectCount] = useState(0);
   const [incorrectCount, setIncorrectCount] = useState(0);
-  const [feedback, setFeedback] = useState<{ optionText: string; correct: boolean } | null>(null); // For multiple choice
-  const [typedFeedback, setTypedFeedback] = useState<TypedFeedback | null>(null); // For typed input
+  const [feedback, setFeedback] = useState<{ optionText: string; correct: boolean } | null>(null); 
+  const [typedFeedback, setTypedFeedback] = useState<TypedFeedback | null>(null); 
   const [isAnswered, setIsAnswered] = useState(false);
   const [askedCardIds, setAskedCardIds] = useState<Set<string>>(new Set());
   const [isTestOver, setIsTestOver] = useState(false);
@@ -74,6 +76,8 @@ export default function TestView() {
 
   const deck: Deck | null = useMemo(() => selectedDeckId ? getDeckById(selectedDeckId) : null, [selectedDeckId, getDeckById]);
   const typedAnswerInputRef = useRef<HTMLInputElement>(null);
+
+  const isCustomSessionActive = useMemo(() => customStudyParams && customStudyParams.deckId === selectedDeckId && customStudyParams.mode === 'test', [customStudyParams, selectedDeckId]);
 
   const fieldOptions: { value: TestField; labelKey: string }[] = [
     { value: 'front', labelKey: 'testFieldFront' },
@@ -99,12 +103,21 @@ export default function TestView() {
 
   useEffect(() => {
     if (selectedDeckId) {
-      setRawDeckCards(getCardsByDeckId(selectedDeckId));
+        if (isCustomSessionActive && customStudyParams) {
+            const allCardsForDeck = getCardsByDeckId(customStudyParams.deckId);
+            let filtered = allCardsForDeck;
+            if (customStudyParams.tagsToInclude.length > 0) {
+                filtered = filtered.filter(card => customStudyParams.tagsToInclude.some(tag => card.tags.includes(tag)));
+            }
+            setRawDeckCards(shuffleArray(filtered).slice(0, customStudyParams.limit));
+        } else {
+            setRawDeckCards(getCardsByDeckId(selectedDeckId));
+        }
     } else {
       setRawDeckCards([]);
     }
-    handleTestConfigChange(); // Reset test state when deck changes
-  }, [selectedDeckId, getCardsByDeckId]);
+    handleTestConfigChange(); 
+  }, [selectedDeckId, getCardsByDeckId, isCustomSessionActive, customStudyParams]);
 
 
   useEffect(() => {
@@ -124,7 +137,7 @@ export default function TestView() {
   }, [questionField, answerField, rawDeckCards]);
 
   useEffect(() => {
-    if (isAppContextLoading || (selectedDeckId && rawDeckCards.length === 0 && !isMasteryRun)) {
+    if (isAppContextLoading || (selectedDeckId && rawDeckCards.length === 0 && !isMasteryRun && !isCustomSessionActive)) {
       setCurrentTestQueue([]); 
       setNotEnoughCardsMessage(null); 
       setIsTestOver(false); 
@@ -152,7 +165,7 @@ export default function TestView() {
     setNotEnoughCardsMessage(null);
 
     let queue: CardType[] = [];
-    if (testSizeOption === 'all' || isMasteryRun) {
+    if (testSizeOption === 'all' || isMasteryRun || isCustomSessionActive) { // Custom session always uses all its filtered cards
       queue = shuffleArray([...testableCards]);
     } else {
       const size = parseInt(testSizeOption, 10);
@@ -166,14 +179,14 @@ export default function TestView() {
 
     if (queue.length > 0 && (isTestOver || questionCard === null)) {
       setIsTestOver(false);
-      handleTestConfigChange(); // Reset internal test state like scores, asked cards
+      handleTestConfigChange(); 
     } else if (queue.length === 0 && rawDeckCards.length > 0) { 
         setNotEnoughCardsMessage(t('noCardsMatchTestSettings'));
         setIsTestOver(true);
         setQuestionCard(null);
         setOptions([]);
     }
-  }, [testableCards, testSizeOption, isMasteryRun, t, rawDeckCards.length, selectedDeckId, isAppContextLoading, testVariant]);
+  }, [testableCards, testSizeOption, isMasteryRun, t, rawDeckCards.length, selectedDeckId, isAppContextLoading, testVariant, isCustomSessionActive]);
 
 
   const loadNextQuestion = useCallback(() => {
@@ -227,7 +240,6 @@ export default function TestView() {
       }
       setOptions(currentOptionsSet.slice(0, MIN_CARDS_FOR_MULTIPLE_CHOICE_OPTIONS));
     } else {
-      // Typed input mode: no options to set, focus input
       setTimeout(() => typedAnswerInputRef.current?.focus(), 0);
     }
     
@@ -280,7 +292,7 @@ export default function TestView() {
 
     setTimeout(() => {
       loadNextQuestion();
-    }, isCorrect ? 1500 : 3000); // Longer delay if incorrect to see correct answer
+    }, isCorrect ? 1500 : 3000); 
   };
   
   const handleTestConfigChange = () => { 
@@ -294,7 +306,7 @@ export default function TestView() {
     setTypedFeedback(null);
     setTypedAnswer('');
     setIsAnswered(false);
-    if (isMasteryRun && testSizeOption === 'all') { // only reset mastery flag if size is all
+    if (isMasteryRun && testSizeOption === 'all') { 
         setMasteryTestAllCorrect(true); 
     }
   };
@@ -316,19 +328,21 @@ export default function TestView() {
     if (testableCards.length >= 10) sizes.push({value: '10', label: t('testSizeSpecific', {count: 10})});
     if (testableCards.length >= 20) sizes.push({value: '20', label: t('testSizeSpecific', {count: 20})});
     if (testableCards.length >= 50) sizes.push({value: '50', label: t('testSizeSpecific', {count: 50})});
-    if (testableCards.length > 0) { // Only add "All" if there are cards
+    if (testableCards.length > 0) { 
         sizes.push({value: 'all', label: t('testSizeAll')});
     }
-    
-    if (!sizes.find(s => s.value === testSizeOption) && sizes.length > 0) {
-        const newSize = sizes.find(s => s.value === 'all')?.value || sizes[0].value;
-        if (testSizeOption !== newSize) {
-            // This state update will trigger a re-render and re-evaluation of useEffect for currentTestQueue
-            // setTestSizeOption(newSize); // Avoid direct setState in useMemo. Manage this in an effect or on initial load.
-        }
-    }
     return sizes;
-  }, [testableCards.length, t, testSizeOption]);
+  }, [testableCards.length, t]);
+
+  useEffect(() => {
+    // Ensure testSizeOption is valid after testableCards changes
+    if (availableTestSizes.length > 0 && !availableTestSizes.find(s => s.value === testSizeOption)) {
+      setTestSizeOption(availableTestSizes.find(s => s.value === 'all')?.value || availableTestSizes[0].value);
+    } else if (availableTestSizes.length === 0 && testSizeOption !== 'all') {
+      // If no sizes are available (e.g. less than 10 cards), default to 'all'
+      setTestSizeOption('all');
+    }
+  }, [availableTestSizes, testSizeOption]);
 
   useEffect(() => {
     if (isTestOver && isMasteryRun && deck && selectedDeckId) {
@@ -372,7 +386,7 @@ export default function TestView() {
         <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle className="text-center text-2xl">
-              {isMasteryRun ? t('masteryTestCompleteTitle') : t('testCompleteTitle')}
+              {isMasteryRun ? t('masteryTestCompleteTitle') : isCustomSessionActive ? t('customTestCompleteTitle') : t('testCompleteTitle')}
             </CardTitle>
           </CardHeader>
           <CardContent className="text-center text-lg space-y-2">
@@ -401,7 +415,7 @@ export default function TestView() {
           </CardContent>
           <CardFooter className="flex flex-col gap-2">
             <Button onClick={handleTestConfigChange} className="w-full">{t('restartTest')}</Button>
-            <Button variant="outline" onClick={() => setCurrentView('deck-list')} className="w-full">
+            <Button variant="outline" onClick={() => { setCurrentView('deck-list'); setCustomStudyParams(null); }} className="w-full">
               {t('decks')}
             </Button>
           </CardFooter>
@@ -413,12 +427,12 @@ export default function TestView() {
   if (isAppContextLoading && !questionCard && !isTestOver) {
     return (
       <div className="flex flex-col items-center p-4 md:p-6 space-y-6">
-        <div className="w-full max-w-2xl mb-2 flex justify-between items-center">
-          <Button variant="outline" onClick={() => setCurrentView('deck-list')} disabled>
+        <div className="w-full max-w-3xl mb-2 flex justify-between items-center">
+          <Button variant="outline" onClick={() => { setCurrentView('deck-list'); setCustomStudyParams(null); }} disabled>
             <ArrowLeft className="mr-2 h-4 w-4" /> {t('decks')}
           </Button>
           <h2 className="text-2xl font-semibold">
-            {isMasteryRun ? t('masteryChallengeTitle') : t('testMode')} - {deck.name}
+            {isMasteryRun ? t('masteryChallengeTitle') : isCustomSessionActive ? t('customSessionLabel') : t('testMode')} - {deck.name}
           </h2>
           <Button variant="outline" size="icon" onClick={() => setAllowHints(prev => !prev)} title={t(allowHints ? 'testToggleHintsOff' : 'testToggleHintsOn')} disabled>
             {allowHints ? <Lightbulb className="h-5 w-5" /> : <LightbulbOff className="h-5 w-5" />}
@@ -432,11 +446,13 @@ export default function TestView() {
   return (
     <div className="flex flex-col items-center p-4 md:p-6 space-y-6">
       <div className="w-full max-w-3xl mb-2 flex justify-between items-center">
-        <Button variant="outline" onClick={() => setCurrentView('deck-list')}>
+        <Button variant="outline" onClick={() => { setCurrentView('deck-list'); setCustomStudyParams(null); }}>
           <ArrowLeft className="mr-2 h-4 w-4" /> {t('decks')}
         </Button>
-        <h2 className="text-2xl font-semibold">{isMasteryRun ? t('masteryChallengeTitle') : t('testMode')} - {deck.name}</h2>
-        <Button variant="outline" size="icon" onClick={() => setAllowHints(prev => !prev)} title={t(allowHints ? 'testToggleHintsOn' : 'testToggleHintsOff')}>
+        <h2 className="text-2xl font-semibold">
+            {isMasteryRun ? t('masteryChallengeTitle') : isCustomSessionActive ? t('customSessionLabel') : t('testMode')} - {deck.name}
+        </h2>
+        <Button variant="outline" size="icon" onClick={() => setAllowHints(prev => !prev)} title={t(allowHints ? 'testToggleHintsOff' : 'testToggleHintsOn')}>
           {allowHints ? <Lightbulb className="h-5 w-5" /> : <LightbulbOff className="h-5 w-5" />}
         </Button>
       </div>
@@ -448,7 +464,7 @@ export default function TestView() {
             <Select
               value={questionField}
               onValueChange={(value) => { setQuestionField(value as TestField); handleTestConfigChange(); }}
-              disabled={isMasteryRun}
+              disabled={isMasteryRun || isCustomSessionActive}
             >
               <SelectTrigger id="questionField"><SelectValue placeholder={t('testFieldSelectPlaceholder')} /></SelectTrigger>
               <SelectContent>
@@ -463,7 +479,7 @@ export default function TestView() {
             <Select
               value={answerField}
               onValueChange={(value) => { setAnswerField(value as TestField); handleTestConfigChange(); }}
-              disabled={isMasteryRun}
+              disabled={isMasteryRun || isCustomSessionActive}
             >
               <SelectTrigger id="answerField"><SelectValue placeholder={t('testFieldSelectPlaceholder')} /></SelectTrigger>
               <SelectContent>
@@ -478,7 +494,7 @@ export default function TestView() {
             <Select
               value={testVariant}
               onValueChange={(value) => { setTestVariant(value as TestVariant); handleTestConfigChange(); }}
-              disabled={isMasteryRun}
+              disabled={isMasteryRun || isCustomSessionActive}
             >
               <SelectTrigger id="testVariant"><SelectValue placeholder={t('testVariantSelectPlaceholder')} /></SelectTrigger>
               <SelectContent>
@@ -493,7 +509,7 @@ export default function TestView() {
             <Select
                 value={testSizeOption}
                 onValueChange={(value) => { setTestSizeOption(value as TestSizeOption); handleTestConfigChange(); }}
-                disabled={isMasteryRun || availableTestSizes.length <=1}
+                disabled={isMasteryRun || isCustomSessionActive || availableTestSizes.length <=1}
             >
                 <SelectTrigger id="testSize"><SelectValue placeholder={t('testSizeSelectPlaceholder')} /></SelectTrigger>
                 <SelectContent>
@@ -505,6 +521,20 @@ export default function TestView() {
           </div>
         </div>
       </Card>
+      
+      {isCustomSessionActive && customStudyParams && (
+         <Alert className="w-full max-w-xl">
+            <Filter className="h-4 w-4" />
+            <AlertTitle>{t('customSessionActiveTitle')}</AlertTitle>
+            <AlertDescription>
+                {t('customSessionActiveDesc', { 
+                    tagCount: customStudyParams.tagsToInclude.length, 
+                    tags: customStudyParams.tagsToInclude.join(', ') || t('anyTag'),
+                    limit: customStudyParams.limit 
+                })}
+            </AlertDescription>
+        </Alert>
+      )}
 
       {questionCard && !isTestOver && currentTestQueue.length > 0 ? (
         <Card className="w-full max-w-xl">
@@ -579,4 +609,3 @@ export default function TestView() {
     </div>
   );
 }
-

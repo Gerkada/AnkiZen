@@ -3,7 +3,7 @@
 
 import type { ReactNode } from 'react';
 import { createContext, useContext, useState, useCallback, useEffect, useMemo } from 'react';
-import type { Deck, Card, UserSettings, AppView, SRSGrade, ReviewLog, TestConfig } from '@/types';
+import type { Deck, Card, UserSettings, AppView, SRSGrade, ReviewLog, TestConfig, CustomStudyParams } from '@/types';
 import useLocalStorage from '@/hooks/useLocalStorage';
 import { calculateNextReview, createNewCard, type SRSCustomIntervals } from '@/lib/srs';
 import { formatISO, parseISO, isBefore, startOfDay, addDays, isAfter } from 'date-fns';
@@ -49,6 +49,7 @@ interface AppContextState {
   selectedDeckId: string | null;
   isLoading: boolean;
   testConfig: TestConfig | null; 
+  customStudyParams: CustomStudyParams | null;
 
   // Deck Actions
   addDeck: (name: string) => Deck;
@@ -74,11 +75,12 @@ interface AppContextState {
   setSelectedDeckId: (deckId: string | null) => void;
   updateUserSettings: (settings: Partial<UserSettings>) => void;
   setTestConfig: (config: TestConfig | null) => void;
+  setCustomStudyParams: (params: CustomStudyParams | null) => void;
 
   // Derived State / Helpers
   getDeckById: (deckId: string) => Deck | undefined;
   getCardsByDeckId: (deckId: string) => Card[];
-  getDueCardsForDeck: (deckId: string) => { due: Card[], newCards: Card[] };
+  getDueCardsForDeck: (deckId: string, isCustomSession?: boolean) => { due: Card[], newCards: Card[] };
 }
 
 const initialUserSettings: UserSettings = {
@@ -101,6 +103,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [selectedDeckId, setSelectedDeckIdInternal] = useState<string | null>(userSettings.lastStudiedDeckId || null);
   const [isLoading, setIsLoading] = useState(true); 
   const [testConfig, setTestConfigInternal] = useState<TestConfig | null>(null);
+  const [customStudyParams, setCustomStudyParamsInternal] = useState<CustomStudyParams | null>(null);
   const { toast } = useToast();
   const t = getTranslator(userSettings.language);
 
@@ -206,6 +209,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   
   const setCurrentView = useCallback((view: AppView) => {
     setCurrentViewInternal(view);
+    // Clear custom study params if navigating away from study/test unless it's a direct navigation to study/test
+    if (view !== 'study' && view !== 'test') {
+        setCustomStudyParamsInternal(null);
+    }
   }, []);
 
   const setSelectedDeckId = useCallback((deckId: string | null) => {
@@ -216,6 +223,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const setTestConfig = useCallback((config: TestConfig | null) => {
     setTestConfigInternal(config);
   }, []);
+
+  const setCustomStudyParams = useCallback((params: CustomStudyParams | null) => {
+    setCustomStudyParamsInternal(params);
+  }, []);
+
 
   const updateUserSettings = useCallback((settings: Partial<UserSettings>) => {
     setUserSettingsState(prev => ({ ...prev, ...settings }));
@@ -460,6 +472,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const now = formatISO(new Date());
     const learnedInterval = 90; 
     const dueDate = formatISO(addDays(startOfDay(new Date()), learnedInterval));
+    const deck = getDeckById(deckId);
 
     setCards(prevCards => 
       prevCards.map(card => {
@@ -475,30 +488,39 @@ export function AppProvider({ children }: { children: ReactNode }) {
             consecutiveAgainCount: 0,
             isSuspended: false,
             buriedUntil: null,
-            tags: (card.tags || []).filter(tag => tag !== LEECH_TAG), // Remove leech tag
+            tags: (card.tags || []).filter(tag => tag !== LEECH_TAG), 
             updatedAt: now,
           };
         }
         return card;
       })
     );
-    const deck = decks.find(d => d.id === deckId);
+    
     if(deck){
       toast({ title: t('successTitle'), description: t('deckMarkedLearned', { deckName: deck.name }) });
     }
-  }, [setCards, decks, toast, t]); 
+  }, [setCards, getDeckById, toast, t]); 
 
 
   const getCardsByDeckId = useCallback((deckId: string) => cards.filter(c => c.deckId === deckId), [cards]);
 
-  const getDueCardsForDeck = useCallback((deckId: string) => {
+  const getDueCardsForDeck = useCallback((deckId: string, isCustomSession: boolean = false) => {
     const currentDeck = decks.find(d => d.id === deckId); 
     if (!currentDeck) return { due: [], newCards: [] };
+
+    if (isCustomSession) { // For custom sessions, all non-suspended/non-buried cards are considered "new" for the session
+        const allEligibleCards = cards.filter(card => 
+            card.deckId === deckId && 
+            !card.isSuspended &&
+            (!card.buriedUntil || isAfter(parseISO(card.buriedUntil), startOfDay(new Date())))
+        );
+        return { due: [], newCards: allEligibleCards }; // No distinction for "due" in this custom context
+    }
 
     const today = startOfDay(new Date());
     const allDeckCards = cards.filter(card => 
         card.deckId === deckId && 
-        !card.isLeech && // Don't study leeches directly unless explicitly handled elsewhere
+        !card.isLeech && 
         !card.isSuspended &&
         (!card.buriedUntil || isAfter(today, parseISO(card.buriedUntil)) || isSameDay(today, parseISO(card.buriedUntil)))
     );
@@ -531,18 +553,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
 
   const contextValue = useMemo(() => ({
-    decks, cards, userSettings, reviewLogs, currentView, selectedDeckId, isLoading, testConfig,
+    decks, cards, userSettings, reviewLogs, currentView, selectedDeckId, isLoading, testConfig, customStudyParams,
     addDeck, renameDeck, updateDeck, deleteDeck, importCardsToDeck, markDeckAsLearned,
     addCardToDeck, updateCard, deleteCard, reviewCard, resetDeckProgress,
     suspendCard, unsuspendCard, buryCardUntilTomorrow,
-    setCurrentView, setSelectedDeckId, updateUserSettings, setTestConfig,
+    setCurrentView, setSelectedDeckId, updateUserSettings, setTestConfig, setCustomStudyParams,
     getDeckById, getCardsByDeckId, getDueCardsForDeck
   }), [
-    decks, cards, userSettings, reviewLogs, currentView, selectedDeckId, isLoading, testConfig,
+    decks, cards, userSettings, reviewLogs, currentView, selectedDeckId, isLoading, testConfig, customStudyParams,
     addDeck, renameDeck, updateDeck, deleteDeck, importCardsToDeck, markDeckAsLearned,
     addCardToDeck, updateCard, deleteCard, reviewCard, resetDeckProgress,
     suspendCard, unsuspendCard, buryCardUntilTomorrow, 
-    setCurrentView, setSelectedDeckId, updateUserSettings, setTestConfig,
+    setCurrentView, setSelectedDeckId, updateUserSettings, setTestConfig, setCustomStudyParams,
     getDeckById, getCardsByDeckId, getDueCardsForDeck 
   ]);
 

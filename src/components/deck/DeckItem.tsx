@@ -6,12 +6,13 @@ import type { Deck, Card as CardType, TestField } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
-import { Edit3, Trash2, MoreVertical, BookOpen, Edit, FileQuestion, Upload, Download, CheckCircle2 } from 'lucide-react';
+import { Edit3, Trash2, MoreVertical, BookOpen, Edit, FileQuestion, Upload, Download, CheckCircle2, Filter } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { useLanguage } from '@/contexts/LanguageProvider';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import RenameDeckDialog from './RenameDeckDialog';
 import { useToast } from '@/hooks/use-toast';
+import CustomStudyDialog from './CustomStudyDialog'; // Import CustomStudyDialog
 
 interface DeckItemProps {
   deck: Deck;
@@ -28,17 +29,17 @@ export default function DeckItem({ deck, cardCount }: DeckItemProps) {
     importCardsToDeck, 
     getCardsByDeckId,
     setTestConfig,
-    testConfig // Ensure testConfig is available if needed for logic here, though it's not used currently
+    setCustomStudyParams
   } = useApp();
   const { t } = useLanguage();
   const { toast } = useToast();
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
+  const [isCustomStudyDialogOpen, setIsCustomStudyDialogOpen] = useState(false); // State for custom study dialog
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const testableCardsCount = useMemo(() => {
     const cardsInDeck = getCardsByDeckId(deck.id);
-    // A card is testable if it has content for at least two distinct fields among front, reading, translation
     return cardsInDeck.filter(card => {
       let populatedFields = 0;
       if (card.front?.trim()) populatedFields++;
@@ -50,6 +51,7 @@ export default function DeckItem({ deck, cardCount }: DeckItemProps) {
 
 
   const handleStudy = () => {
+    setCustomStudyParams(null); // Ensure no custom params when starting normal study
     setSelectedDeckId(deck.id);
     setCurrentView('study');
   };
@@ -60,6 +62,7 @@ export default function DeckItem({ deck, cardCount }: DeckItemProps) {
   };
 
   const handleTest = (isMasteryTest = false) => {
+    setCustomStudyParams(null); // Ensure no custom params
     setTestConfig({ isMasteryTest });
     setSelectedDeckId(deck.id);
     setCurrentView('test');
@@ -114,9 +117,9 @@ export default function DeckItem({ deck, cardCount }: DeckItemProps) {
 
   const handleExportDeck = () => {
     const cardsToExport = getCardsByDeckId(deck.id);
-    const headers = "Front,Reading,Translation";
+    const headers = "Front,Reading,Translation,Tags";
     const csvRows = cardsToExport.map(card =>
-      `"${card.front.replace(/"/g, '""')}","${(card.reading || '').replace(/"/g, '""')}","${card.translation.replace(/"/g, '""')}"`
+      `"${card.front.replace(/"/g, '""')}","${(card.reading || '').replace(/"/g, '""')}","${card.translation.replace(/"/g, '""')}","${(card.tags || []).join(';').replace(/"/g, '""')}"`
     );
     const csvContent = [headers, ...csvRows].join("\n");
 
@@ -145,7 +148,7 @@ export default function DeckItem({ deck, cardCount }: DeckItemProps) {
         onChange={handleFileSelected}
       />
       <Card
-        className="group relative flex flex-col cursor-pointer transition-transform transition-shadow duration-200 ease-in-out hover:shadow-xl hover:scale-105 hover:z-10 focus-within:shadow-xl focus-within:scale-105 focus-within:z-10"
+        className="group relative flex flex-col cursor-pointer transition-transform transition-shadow duration-200 ease-in-out hover:shadow-xl hover:scale-105 focus-within:shadow-xl focus-within:scale-105 hover:z-10 focus-within:z-10"
         tabIndex={0}
       >
         <CardHeader>
@@ -163,6 +166,11 @@ export default function DeckItem({ deck, cardCount }: DeckItemProps) {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                <DropdownMenuItem onClick={() => setIsCustomStudyDialogOpen(true)} className="cursor-pointer">
+                  <Filter className="mr-2 h-4 w-4" />
+                  {t('customSession')}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleImportWordsClick} className="cursor-pointer">
                   <Upload className="mr-2 h-4 w-4" />
                   {t('importWords')}
@@ -235,7 +243,13 @@ export default function DeckItem({ deck, cardCount }: DeckItemProps) {
         onOpenChange={setIsRenameDialogOpen}
         deck={deck}
       />
+      {deck && (
+        <CustomStudyDialog
+          isOpen={isCustomStudyDialogOpen}
+          onOpenChange={setIsCustomStudyDialogOpen}
+          deck={deck}
+        />
+      )}
     </>
   );
 }
-

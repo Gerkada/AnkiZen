@@ -113,6 +113,22 @@ export default function HelpDialog({ isOpen, onOpenChange }: HelpDialogProps) {
       ),
     },
     {
+      titleKey: 'helpCustomStudyTitle',
+      content: (
+        <>
+          <p className="mb-2">{t('helpCustomStudyP1')}</p>
+          <h4 className="font-semibold mt-3 mb-1">{t('helpCustomStudyAccess')}</h4>
+          <p className="mb-2">{t('helpCustomStudyDialogTitle')}</p>
+          <ul className="list-disc pl-5 mb-2 space-y-1">
+            <li dangerouslySetInnerHTML={{ __html: t('helpCustomStudyDialogTags')}}></li>
+            <li dangerouslySetInnerHTML={{ __html: t('helpCustomStudyDialogLimit')}}></li>
+          </ul>
+          <p className="mb-2">{t('helpCustomStudyDialogStart')}</p>
+          <p className="mb-2">{t('helpCustomStudyIndicator')}</p>
+        </>
+      ),
+    },
+    {
       titleKey: 'helpStatisticsTitle',
       content: (
         <>
