@@ -43,7 +43,7 @@ export default function TestView() {
     getCardsByDeckId,
     setCurrentView,
     testConfig,
-    setTestConfig,
+    setTestConfig: setAppContextTestConfig, // Renamed to avoid conflict
     markDeckAsLearned,
     isLoading: isAppContextLoading,
     customStudyParams,
@@ -68,7 +68,7 @@ export default function TestView() {
 
   const [questionField, setQuestionField] = useState<TestField>('front');
   const [answerField, setAnswerField] = useState<TestField>('translation');
-  const [allowHints, setAllowHints] = useState(false);
+  const [allowHints, setAllowHints] = useState(false); // Default to false
   const [notEnoughCardsMessage, setNotEnoughCardsMessage] = useState<string | null>(null);
 
   const [isMasteryRun, setIsMasteryRun] = useState(false);
@@ -103,45 +103,38 @@ export default function TestView() {
     setTypedFeedback(null);
     setTypedAnswer('');
     setIsAnswered(false);
-    setNotEnoughCardsMessage(null);
-    if (isMasteryRun) {
+    setNotEnoughCardsMessage(null); // Clear any previous error message
+    if (isMasteryRun) { // isMasteryRun state is set by the effect below
         setMasteryTestAllCorrect(true);
     }
-  }, [isMasteryRun, t]); // t is stable from useLanguage
+  }, [isMasteryRun]); // t is stable, no need to include
 
   useEffect(() => {
     if (testConfig?.isMasteryTest) {
       setIsMasteryRun(true);
-      setTestSizeOption('all');
-      // masteryTestAllCorrect is managed by handleTestConfigChange or answer handlers
-      setTestConfig(null); // Consume the config
-      // Note: handleTestConfigChange is called by the effect below due to isMasteryRun change
+      setTestSizeOption('all'); // Mastery always tests all
+      setAppContextTestConfig(null); // Consume the global config
+      // handleTestConfigChange will be called by the effect below due to isMasteryRun change
     }
-  }, [testConfig, setTestConfig]);
+  }, [testConfig, setAppContextTestConfig]);
+
+  // Effect to reset test state when configuration parameters change
+  useEffect(() => {
+    handleTestConfigChange();
+  }, [questionField, answerField, testVariant, testSizeOption, selectedDeckId, isCustomSessionActive, isMasteryRun, handleTestConfigChange]);
+
 
   // Effect to populate rawDeckCards when deck/custom session changes
   useEffect(() => {
     if (isAppContextLoading) {
-        setRawDeckCards([]);
+        setRawDeckCards([]); 
         return;
     }
 
     let initialCards: CardType[] = [];
-    if (selectedDeckId) {
-        if (isCustomSessionActive && customStudyParams && customStudyParams.deckId === selectedDeckId) {
-            const allCardsForDeck = getCardsByDeckId(customStudyParams.deckId);
-            let filtered = allCardsForDeck;
-            if (customStudyParams.tagsToInclude.length > 0) {
-                filtered = filtered.filter(card =>
-                    (card.tags || []).some(tag => customStudyParams.tagsToInclude.includes(tag))
-                );
-            }
-            initialCards = shuffleArray(filtered).slice(0, customStudyParams.limit);
-        } else if (!isCustomSessionActive) { // Only load for normal deck if not custom session
-            initialCards = getCardsByDeckId(selectedDeckId);
-        }
-    } else if (isCustomSessionActive && customStudyParams) {
-        // Handle custom session even if selectedDeckId isn't set (e.g. direct link)
+    if (selectedDeckId && !isCustomSessionActive) { // Standard deck test
+        initialCards = getCardsByDeckId(selectedDeckId);
+    } else if (isCustomSessionActive && customStudyParams && customStudyParams.deckId) { // Custom session test
         const allCardsForDeck = getCardsByDeckId(customStudyParams.deckId);
         let filtered = allCardsForDeck;
         if (customStudyParams.tagsToInclude.length > 0) {
@@ -150,15 +143,13 @@ export default function TestView() {
             );
         }
         initialCards = shuffleArray(filtered).slice(0, customStudyParams.limit);
+    } else if (isMasteryRun && selectedDeckId) { // Mastery run
+        initialCards = getCardsByDeckId(selectedDeckId);
+    } else {
+        initialCards = []; // Default to empty if no valid selection
     }
     setRawDeckCards(initialCards);
-  }, [selectedDeckId, getCardsByDeckId, isCustomSessionActive, customStudyParams, isAppContextLoading]);
-
-
-  // Effect to reset test state when configuration parameters change
-  useEffect(() => {
-    handleTestConfigChange();
-  }, [questionField, answerField, testVariant, testSizeOption, selectedDeckId, isCustomSessionActive, handleTestConfigChange]);
+  }, [selectedDeckId, getCardsByDeckId, isCustomSessionActive, customStudyParams, isMasteryRun, isAppContextLoading]);
 
 
   const testableCards = useMemo(() => {
@@ -175,16 +166,28 @@ export default function TestView() {
   useEffect(() => {
     if (isAppContextLoading) {
       setCurrentTestQueue([]);
-      setNotEnoughCardsMessage(null); // Clear message while context is loading
-      return;
+      setNotEnoughCardsMessage(null);
+      return; 
     }
 
-    if (!selectedDeckId && !isCustomSessionActive){
-        setCurrentTestQueue([]);
-        setNotEnoughCardsMessage(null);
-        setQuestionCard(null);
-        return;
+    if (!selectedDeckId && !isCustomSessionActive) { 
+      setCurrentTestQueue([]);
+      setNotEnoughCardsMessage(null);
+      setQuestionCard(null);
+      setIsTestOver(true);
+      return;
     }
+    
+    if (rawDeckCards.length === 0) {
+        setCurrentTestQueue([]);
+        setNotEnoughCardsMessage(null); 
+        // If handleTestConfigChange already set isTestOver=false,
+        // and rawDeckCards are truly empty for the selection, then the render path should show loading.
+        // If it's a genuinely empty deck, the conditions below will eventually set the error message.
+        return; 
+    }
+
+    // --- From this point, rawDeckCards.length > 0 ---
 
     let minCardsRequired = 1;
     let specificMessageKey = 'noCardsMatchTestSettings';
@@ -193,26 +196,23 @@ export default function TestView() {
       specificMessageKey = 'notEnoughCardsForTestOptions';
     }
 
-    if (rawDeckCards.length === 0 && (selectedDeckId || isCustomSessionActive)) {
-        setNotEnoughCardsMessage(t('noCardsMatchTestSettings'));
-        setCurrentTestQueue([]);
-        setQuestionCard(null);
-        return;
-    }
-    if (testableCards.length === 0 && rawDeckCards.length > 0) {
-        setNotEnoughCardsMessage(t('noCardsMatchTestSettings'));
-        setCurrentTestQueue([]);
-        setQuestionCard(null);
-        return;
-    }
-    if (testableCards.length < minCardsRequired) {
-        setNotEnoughCardsMessage(t(specificMessageKey, { minCount: minCardsRequired }));
-        setCurrentTestQueue([]);
-        setQuestionCard(null);
-        return;
+    if (testableCards.length === 0) { // rawDeckCards has items, but none are "testable"
+      setNotEnoughCardsMessage(t('noCardsMatchTestSettings'));
+      setCurrentTestQueue([]);
+      setQuestionCard(null);
+      setIsTestOver(true);
+      return;
     }
 
-    setNotEnoughCardsMessage(null);
+    if (testableCards.length < minCardsRequired) { // Testable cards exist, but not enough for current variant
+      setNotEnoughCardsMessage(t(specificMessageKey, { minCount: minCardsRequired }));
+      setCurrentTestQueue([]);
+      setQuestionCard(null);
+      setIsTestOver(true);
+      return;
+    }
+
+    setNotEnoughCardsMessage(null); 
 
     let queue: CardType[] = [];
     if (testSizeOption === 'all' || isMasteryRun || isCustomSessionActive) {
@@ -223,10 +223,10 @@ export default function TestView() {
     }
     setCurrentTestQueue(queue);
 
-    if (queue.length === 0 && testableCards.length > 0) {
-        setNotEnoughCardsMessage(t('noCardsMatchTestSettings'));
-    } else if (queue.length === 0 && testableCards.length === 0) {
-        setNotEnoughCardsMessage(t('noCardsMatchTestSettings'));
+    if (queue.length === 0) {
+        setNotEnoughCardsMessage(t('noCardsMatchTestSettings')); 
+        setQuestionCard(null);
+        setIsTestOver(true);
     }
 
   }, [
@@ -238,7 +238,7 @@ export default function TestView() {
     t,
     selectedDeckId,
     isCustomSessionActive,
-    testVariant
+    testVariant,
   ]);
 
 
@@ -248,17 +248,18 @@ export default function TestView() {
     setTypedFeedback(null);
     setTypedAnswer('');
 
-    if (!deck && !isCustomSessionActive && !selectedDeckId) {
-        setIsTestOver(true);
-        setQuestionCard(null);
-        setOptions([]);
-        return;
-    }
+    // This check should not be needed if the "queue building" effect correctly sets isTestOver.
+    // if (!deck && !isCustomSessionActive && !selectedDeckId) {
+    //     setIsTestOver(true);
+    //     setQuestionCard(null);
+    //     setOptions([]);
+    //     return;
+    // }
     
     const availableCards = currentTestQueue.filter(card => !askedCardIds.has(card.id));
 
     if (availableCards.length === 0) {
-      if (currentTestQueue.length > 0) {
+      if (currentTestQueue.length > 0 || askedCardIds.size > 0) { // Test was running or queue was populated
         setIsTestOver(true);
       }
       setQuestionCard(null);
@@ -294,24 +295,38 @@ export default function TestView() {
           } else if (dummyCounter > testableCards.length * 2) { break; }
       }
       setOptions(currentOptionsSet.slice(0, MIN_CARDS_FOR_MULTIPLE_CHOICE_OPTIONS));
-    } else {
+    } else { // typedInput
       setTimeout(() => typedAnswerInputRef.current?.focus(), 0);
     }
 
-  }, [deck, currentTestQueue, askedCardIds, testableCards, questionField, answerField, t, testVariant, selectedDeckId, isCustomSessionActive]);
+  }, [currentTestQueue, askedCardIds, testableCards, answerField, t, testVariant]); // deck removed as it's derived
 
 
    useEffect(() => {
     if (
-      rawDeckCards.length > 0 && // Ensure base cards are loaded
-      currentTestQueue.length > 0 &&
-      !isTestOver &&
-      !questionCard &&
-      askedCardIds.size === 0
+      !isAppContextLoading && // Ensure app context is loaded
+      (selectedDeckId || isCustomSessionActive) && // Ensure a deck/session is active
+      rawDeckCards.length > 0 && // Ensure base cards for the deck/session are loaded
+      currentTestQueue.length > 0 && // Ensure a test queue has been successfully built
+      !isTestOver && // Ensure the test isn't already marked as over
+      !questionCard && // Ensure no question is currently loaded
+      askedCardIds.size === 0 && // Ensure this is the start of a new test (no cards asked yet)
+      !notEnoughCardsMessage // Ensure no "not enough cards" error is present
     ) {
       loadNextQuestion();
     }
-  }, [rawDeckCards, currentTestQueue, isTestOver, questionCard, askedCardIds.size, loadNextQuestion]);
+  }, [
+      isAppContextLoading, 
+      selectedDeckId, 
+      isCustomSessionActive, 
+      rawDeckCards, 
+      currentTestQueue, 
+      isTestOver, 
+      questionCard, 
+      askedCardIds.size, 
+      loadNextQuestion,
+      notEnoughCardsMessage
+    ]);
 
 
   const handleAnswerMultipleChoice = (option: TestOption) => {
@@ -384,7 +399,7 @@ export default function TestView() {
     if (testableCards.length >= 10) sizes.push({value: '10', label: t('testSizeSpecific', {count: 10})});
     if (testableCards.length >= 20) sizes.push({value: '20', label: t('testSizeSpecific', {count: 20})});
     if (testableCards.length >= 50) sizes.push({value: '50', label: t('testSizeSpecific', {count: 50})});
-    if (testableCards.length > 0) {
+    if (testableCards.length > 0) { // Always offer "all" if there are any testable cards
         sizes.push({value: 'all', label: t('testSizeAll', {count: testableCards.length})});
     }
     return sizes;
@@ -394,9 +409,14 @@ export default function TestView() {
     if (availableTestSizes.length > 0 && !availableTestSizes.find(s => s.value === testSizeOption)) {
       setTestSizeOption(availableTestSizes.find(s => s.value === 'all')?.value || availableTestSizes[0].value);
     } else if (availableTestSizes.length === 0 && testSizeOption !== 'all' && rawDeckCards.length > 0) {
-      setTestSizeOption(DEFAULT_TEST_SIZE);
+      // If no sizes are available (e.g. <10 cards) but testableCards exist, default to 'all' or a base default
+      if (testableCards.length > 0) {
+        setTestSizeOption('all');
+      } else {
+        setTestSizeOption(DEFAULT_TEST_SIZE); // Fallback if testableCards is also 0
+      }
     }
-  }, [availableTestSizes, testSizeOption, rawDeckCards.length]);
+  }, [availableTestSizes, testSizeOption, rawDeckCards.length, testableCards.length]);
 
   useEffect(() => {
     if (isTestOver && isMasteryRun && deck && selectedDeckId) {
@@ -413,24 +433,17 @@ export default function TestView() {
 
 
   // --- Rendering Logic ---
-  const showGlobalLoading = isAppContextLoading && !notEnoughCardsMessage && !questionCard;
-  const showTestSpecificLoading = !isAppContextLoading &&
-                                (selectedDeckId || isCustomSessionActive) &&
-                                rawDeckCards.length === 0 && // Still waiting for rawDeckCards to populate for the selected deck
-                                !notEnoughCardsMessage &&
-                                !isTestOver &&
-                                !questionCard;
+  if (isAppContextLoading) {
+    return ( <div className="flex flex-col items-center p-4 md:p-6 space-y-6"><p>{t('loadingTest')}</p></div> );
+  }
 
-
-  if (showGlobalLoading || showTestSpecificLoading) {
-    return (
-      <div className="flex flex-col items-center p-4 md:p-6 space-y-6">
-        <p>{t('loadingTest')}</p>
-      </div>
-    );
+  // If a deck/session is selected, but rawDeckCards are not yet populated,
+  // AND we haven't already determined an error or that the test is over (from a previous state).
+  if ((selectedDeckId || isCustomSessionActive) && rawDeckCards.length === 0 && !notEnoughCardsMessage && !isTestOver) {
+    return ( <div className="flex flex-col items-center p-4 md:p-6 space-y-6"><p>{t('loadingTest')}</p></div> );
   }
   
-  if (!deck && !selectedDeckId && !isCustomSessionActive) {
+  if (!deck && !selectedDeckId && !isCustomSessionActive && !isAppContextLoading) { // Ensure context isn't loading
     return (
       <div className="text-center py-10">
         <p>{t('selectDeckToStudy')}</p>
@@ -457,7 +470,7 @@ export default function TestView() {
     );
   }
 
-  if (isTestOver && !questionCard) { // Ensure questionCard is null before showing test over
+  if (isTestOver && !questionCard) { 
      return (
       <div className="flex flex-col items-center justify-center min-h-[calc(100vh-10rem)] p-4 md:p-6 space-y-6">
         <Card className="w-full max-w-md">
@@ -501,7 +514,7 @@ export default function TestView() {
     );
   }
 
-  if (questionCard && (currentTestQueue.length > 0 || askedCardIds.size > 0) ) { // Ensure queue has items or test has started
+  if (questionCard && (currentTestQueue.length > 0 || askedCardIds.size > 0) ) { 
     return (
       <div className="flex flex-col items-center p-4 md:p-6 space-y-6">
         <div className="w-full max-w-3xl mb-2 flex justify-between items-center">
@@ -660,10 +673,7 @@ export default function TestView() {
     );
   }
 
-  return (
-    <div className="flex flex-col items-center p-4 md:p-6 space-y-6">
-      <p>{t('loadingTest')}</p>
-    </div>
-  );
+  // Fallback / initial state before first question effect runs or if other conditions aren't met
+  return ( <div className="flex flex-col items-center p-4 md:p-6 space-y-6"><p>{t('loadingTest')}</p></div> );
 }
-
+    
