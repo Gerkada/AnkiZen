@@ -28,7 +28,7 @@ export default function Flashcard({ card, isFlipped, onFlip, showAnswerButton = 
     >
       {/* The actual flippable card element container */}
       <div
-        className={`flashcard-container w-full rounded-lg cursor-pointer relative min-h-80 flex ${isFlipped ? 'flipped' : ''}`}
+        className={`flashcard-container w-full rounded-lg cursor-pointer relative h-96 ${isFlipped ? 'flipped' : ''}`} // Changed min-h-80 to h-96
         onClick={onFlip}
       >
         <div className="flashcard-inner w-full h-full"> {/* Ensured w-full and h-full */}
