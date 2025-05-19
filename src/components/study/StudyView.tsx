@@ -9,7 +9,7 @@ import Flashcard from './Flashcard';
 import StudyControls from './StudyControls';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, RotateCcw, Repeat, Settings, XCircle, Shuffle, ListChecks, BookCopy, CalendarDays, ChevronsRight, Filter } from 'lucide-react';
+import { ArrowLeft, RotateCcw, Repeat, Settings, XCircle, Shuffle, ListChecks, BookCopy, CalendarDays, ChevronsRight, Filter, Sparkles } from 'lucide-react'; // Added Sparkles
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Switch } from '@/components/ui/switch';
@@ -40,10 +40,11 @@ export default function StudyView() {
   const [currentCard, setCurrentCard] = useState<CardType | null>(null);
   const [isFlipped, setIsFlipped] = useState(false);
   const [studyQueue, setStudyQueue] = useState<CardType[]>([]);
-  const [sessionNewCardCount, setSessionNewCardCount] = useState(0); // For normal sessions
-  const [sessionDueCardCount, setSessionDueCardCount] = useState(0);   // For normal sessions
-  const [sessionTotalCustomCount, setSessionTotalCustomCount] = useState(0); // For custom sessions
+  const [sessionNewCardCount, setSessionNewCardCount] = useState(0); 
+  const [sessionDueCardCount, setSessionDueCardCount] = useState(0);   
+  const [sessionTotalCustomCount, setSessionTotalCustomCount] = useState(0); 
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [isZenMode, setIsZenMode] = useState(false); // State for Zen Mode
   
   const deck = useMemo(() => selectedDeckId ? getDeckById(selectedDeckId) : null, [selectedDeckId, getDeckById]);
 
@@ -318,77 +319,95 @@ export default function StudyView() {
 
 
   return (
-    <div className="flex flex-col items-center p-4 md:p-6">
-      <div className="w-full max-w-3xl mb-6 flex justify-between items-center">
-        <Button variant="outline" onClick={() => { setCurrentView('deck-list'); setCustomStudyParams(null); }}>
-          <ArrowLeft className="mr-2 h-4 w-4" /> {t('decks')}
-        </Button>
-        <h2 className="text-2xl font-semibold">{deck.name} {isCustomSessionActive && <span className="text-base text-muted-foreground">({t('customSessionLabel')})</span>}</h2>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon">
-              <Settings className="h-5 w-5" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-72">
-            <DropdownMenuLabel>{t('deckSettings')}</DropdownMenuLabel>
-            {settingsMenuItems.map((item) => {
-              if (item.type === 'separator') {
-                return <DropdownMenuSeparator key={item.id} />;
-              }
-              if (item.type === 'button') {
-                const Icon = item.icon;
-                return (
-                  <DropdownMenuItem key={item.id} onClick={item.action} className="cursor-pointer" disabled={item.disabled}>
-                    <Icon className="mr-2 h-4 w-4" /> {t(item.labelKey)}
-                  </DropdownMenuItem>
-                );
-              }
-              if (item.type === 'switch') {
-                const Icon = item.icon;
-                return (
-                  <DropdownMenuItem key={item.id} onSelect={(e) => e.preventDefault()} className="cursor-pointer">
-                    <div className="flex items-center justify-between w-full">
-                      <Label htmlFor={item.id} className="flex items-center cursor-pointer">
+    <div className={`flex flex-col items-center p-4 md:p-6 ${isZenMode ? 'justify-center min-h-[calc(100vh-4rem)]' : ''}`}>
+      <div className={`w-full max-w-3xl mb-6 flex justify-between items-center ${isZenMode ? 'absolute top-4 right-4 left-auto w-auto' : ''}`}>
+        {!isZenMode && (
+          <Button variant="outline" onClick={() => { setCurrentView('deck-list'); setCustomStudyParams(null); }}>
+            <ArrowLeft className="mr-2 h-4 w-4" /> {t('decks')}
+          </Button>
+        )}
+        {!isZenMode && (
+          <h2 className="text-2xl font-semibold">{deck.name} {isCustomSessionActive && <span className="text-base text-muted-foreground">({t('customSessionLabel')})</span>}</h2>
+        )}
+        
+        <div className="flex items-center space-x-2">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={() => setIsZenMode(!isZenMode)}
+            aria-label={t('zenModeToggle')}
+            title={t('zenModeToggle')}
+          >
+            <Sparkles className={`h-5 w-5 ${isZenMode ? 'text-primary' : ''}`} />
+          </Button>
+          {!isZenMode && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <Settings className="h-5 w-5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-72">
+                <DropdownMenuLabel>{t('deckSettings')}</DropdownMenuLabel>
+                {settingsMenuItems.map((item) => {
+                  if (item.type === 'separator') {
+                    return <DropdownMenuSeparator key={item.id} />;
+                  }
+                  if (item.type === 'button') {
+                    const Icon = item.icon;
+                    return (
+                      <DropdownMenuItem key={item.id} onClick={item.action} className="cursor-pointer" disabled={item.disabled}>
                         <Icon className="mr-2 h-4 w-4" /> {t(item.labelKey)}
-                      </Label>
-                      <Switch
-                        id={item.id}
-                        checked={item.checked}
-                        onCheckedChange={item.action as () => void}
-                      />
-                    </div>
-                  </DropdownMenuItem>
-                );
-              }
-              if (item.type === 'input') {
-                const Icon = item.icon;
-                return (
-                  <DropdownMenuItem key={item.id} onSelect={(e) => e.preventDefault()} disabled={item.disabled}>
-                    <div className="flex flex-col space-y-1 w-full">
-                      <Label htmlFor={item.id} className="flex items-center text-sm mb-1">
-                        <Icon className="mr-2 h-4 w-4" /> {t(item.labelKey)}
-                      </Label>
-                      <Input
-                        id={item.id}
-                        type="number"
-                        min={item.min}
-                        value={item.value}
-                        onChange={(e) => (item.action as (value: string) => void)(e.target.value)}
-                        className="h-8 text-sm"
-                        disabled={item.disabled}
-                      />
-                    </div>
-                  </DropdownMenuItem>
-                );
-              }
-              return null;
-            })}
-          </DropdownMenuContent>
-        </DropdownMenu>
+                      </DropdownMenuItem>
+                    );
+                  }
+                  if (item.type === 'switch') {
+                    const Icon = item.icon;
+                    return (
+                      <DropdownMenuItem key={item.id} onSelect={(e) => e.preventDefault()} className="cursor-pointer">
+                        <div className="flex items-center justify-between w-full">
+                          <Label htmlFor={item.id} className="flex items-center cursor-pointer">
+                            <Icon className="mr-2 h-4 w-4" /> {t(item.labelKey)}
+                          </Label>
+                          <Switch
+                            id={item.id}
+                            checked={item.checked}
+                            onCheckedChange={item.action as () => void}
+                          />
+                        </div>
+                      </DropdownMenuItem>
+                    );
+                  }
+                  if (item.type === 'input') {
+                    const Icon = item.icon;
+                    return (
+                      <DropdownMenuItem key={item.id} onSelect={(e) => e.preventDefault()} disabled={item.disabled}>
+                        <div className="flex flex-col space-y-1 w-full">
+                          <Label htmlFor={item.id} className="flex items-center text-sm mb-1">
+                            <Icon className="mr-2 h-4 w-4" /> {t(item.labelKey)}
+                          </Label>
+                          <Input
+                            id={item.id}
+                            type="number"
+                            min={item.min}
+                            value={item.value}
+                            onChange={(e) => (item.action as (value: string) => void)(e.target.value)}
+                            className="h-8 text-sm"
+                            disabled={item.disabled}
+                          />
+                        </div>
+                      </DropdownMenuItem>
+                    );
+                  }
+                  return null;
+                })}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </div>
       </div>
 
-      {showTooltip && (
+      {!isZenMode && showTooltip && (
         <Alert className="mb-6 max-w-lg w-full relative">
            <Button variant="ghost" size="icon" onClick={dismissTooltip} className="absolute top-2 right-2 h-6 w-6 p-0" aria-label={t('dismissTooltip')}>
             <XCircle className="h-4 w-4" />
@@ -401,7 +420,7 @@ export default function StudyView() {
         </Alert>
       )}
       
-      {isCustomSessionActive && customStudyParams && (
+      {!isZenMode && isCustomSessionActive && customStudyParams && (
         <Alert className="mb-6 max-w-lg w-full">
             <Filter className="h-4 w-4" />
             <AlertTitle>{t('customSessionActiveTitle')}</AlertTitle>
@@ -417,12 +436,12 @@ export default function StudyView() {
         </Alert>
       )}
 
-      {!isCustomSessionActive && (
+      {!isZenMode && !isCustomSessionActive && (
         <div className="w-full max-w-lg mb-6 text-sm">
-          <div className="grid grid-cols-3 text-muted-foreground">
-            <span className="text-center">{t('new')}: {sessionNewCardCount}</span>
-            <span className="text-center">{t('due')}: {sessionDueCardCount}</span>
-            <span className="text-center">{t('dailyNewIntroduced')}: {deck.dailyNewCardsIntroduced}/{deck.newCardsPerDay}</span>
+          <div className="grid grid-cols-3 text-center text-muted-foreground">
+            <span>{t('new')}: {sessionNewCardCount}</span>
+            <span>{t('due')}: {sessionDueCardCount}</span>
+            <span>{t('dailyNewIntroduced')}: {deck.dailyNewCardsIntroduced}/{deck.newCardsPerDay}</span>
           </div>
           <div className="mt-1 text-center text-muted-foreground text-xs">
               ({t('sessionLimit')}: {deck.maxReviewsPerDay})
@@ -435,7 +454,6 @@ export default function StudyView() {
           </div>
         </div>
       )}
-
 
       {currentCard ? (
         <>
@@ -452,6 +470,11 @@ export default function StudyView() {
       ) : (
         <div className="text-center py-10">
           <p className="text-2xl font-semibold">{t('deckComplete')}</p>
+          {!isZenMode && (
+            <Button variant="outline" onClick={() => { setCurrentView('deck-list'); setCustomStudyParams(null); }} className="mt-4">
+               <ArrowLeft className="mr-2 h-4 w-4" /> {t('decks')}
+            </Button>
+          )}
         </div>
       )}
 

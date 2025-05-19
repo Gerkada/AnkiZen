@@ -1,4 +1,3 @@
-
 "use client";
 
 import {
@@ -19,11 +18,16 @@ import {
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/contexts/LanguageProvider';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Sparkles } from 'lucide-react'; // Import Sparkles icon
 
 interface HelpDialogProps {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
 }
+
+// A simple component to render the Sparkles icon within the text
+const SparklesIcon = () => <Sparkles className="inline-block h-4 w-4 align-text-bottom" />;
+
 
 export default function HelpDialog({ isOpen, onOpenChange }: HelpDialogProps) {
   const { t } = useLanguage();
@@ -83,6 +87,9 @@ export default function HelpDialog({ isOpen, onOpenChange }: HelpDialogProps) {
             <li dangerouslySetInnerHTML={{ __html: t('helpStudyingCardsSettingsMaxReviews') }}></li>
             <li dangerouslySetInnerHTML={{ __html: t('helpStudyingCardsSettingsInitialIntervals') }}></li>
             <li dangerouslySetInnerHTML={{ __html: t('helpStudyingCardsSettingsLapseInterval') }}></li>
+            <li>
+              <strong>{t('zenModeToggle')}:</strong> {t('helpStudyingCardsSettingsZenMode').replace('<SparklesIcon/>', '<span class="icon-placeholder-sparkles"></span>')}
+            </li>
           </ul>
         </>
       ),
@@ -196,6 +203,13 @@ export default function HelpDialog({ isOpen, onOpenChange }: HelpDialogProps) {
     },
   ];
 
+  // Enhanced content renderer to replace placeholders with actual icons
+  const renderContent = (htmlString: string) => {
+    // For now, just handle the sparkles icon. This can be expanded.
+    const withSparkles = htmlString.replace(/<span class="icon-placeholder-sparkles"><\/span>/g, SparklesIcon().props.children); // A bit hacky, better would be a proper parser or different markup
+    return <div dangerouslySetInnerHTML={{ __html: withSparkles }} />;
+  };
+
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -212,7 +226,8 @@ export default function HelpDialog({ isOpen, onOpenChange }: HelpDialogProps) {
               <AccordionItem value={`item-${index}`} key={index}>
                 <AccordionTrigger>{t(section.titleKey)}</AccordionTrigger>
                 <AccordionContent className="text-sm text-muted-foreground prose prose-sm max-w-none">
-                  {section.content}
+                  {/* Check if section.content is already a ReactNode or needs t() and renderContent */}
+                  {typeof section.content === 'string' ? renderContent(t(section.content)) : section.content}
                 </AccordionContent>
               </AccordionItem>
             ))}

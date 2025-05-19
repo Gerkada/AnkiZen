@@ -28,6 +28,12 @@ export default function ChangelogDialog({ isOpen, onOpenChange }: ChangelogDialo
   const { t } = useLanguage();
 
   const changelogData: ChangelogEntry[] = [
+     {
+      version: t('changelogVersion_1_4_0'), // "1.4.0 (Current)"
+      changes: [
+        'changelog_1_4_0_zenMode',
+      ],
+    },
     {
       version: t('changelogVersion_1_3_0'), 
       changes: [
@@ -37,7 +43,7 @@ export default function ChangelogDialog({ isOpen, onOpenChange }: ChangelogDialo
       ],
     },
     {
-      version: t('changelogVersionCurrent'), // "1.2.0"
+      version: t('changelogVersion_1_2_0'), 
       changes: [
         'changelog_1_2_0_helpUpdate',
         'changelog_1_2_0_changelogFeature',
