@@ -84,7 +84,7 @@ export default function StudyView() {
         let filteredCards = allDeckCards;
         if (customStudyParams.tagsToInclude.length > 0) {
           filteredCards = filteredCards.filter(card => 
-            customStudyParams.tagsToInclude.some(tag => card.tags.includes(tag))
+            customStudyParams.tagsToInclude.some(tag => (card.tags || []).includes(tag))
           );
         }
         sessionCards = shuffleArray(filteredCards).slice(0, customStudyParams.limit);
@@ -92,7 +92,7 @@ export default function StudyView() {
         setSessionNewCardCount(0); 
         setSessionDueCardCount(0);  
       } else {
-        const { due, newCards: limitedNewCards } = getDueCardsForDeck(selectedDeckId, false);
+        const { due, newCards: limitedNewCards } = getDueCardsForDeck(selectedDeckId);
         sessionCards = [...limitedNewCards, ...due];
         if (userSettings.shuffleStudyQueue) {
           sessionCards = shuffleArray(sessionCards);
@@ -419,10 +419,10 @@ export default function StudyView() {
 
       {!isCustomSessionActive && (
         <div className="w-full max-w-lg mb-6 text-sm">
-          <div className="flex justify-around text-muted-foreground">
-            <span>{t('new')}: {sessionNewCardCount}</span>
-            <span>{t('due')}: {sessionDueCardCount}</span>
-            <span>{t('dailyNewIntroduced')}: {deck.dailyNewCardsIntroduced}/{deck.newCardsPerDay}</span>
+          <div className="grid grid-cols-3 text-muted-foreground">
+            <span className="text-center">{t('new')}: {sessionNewCardCount}</span>
+            <span className="text-center">{t('due')}: {sessionDueCardCount}</span>
+            <span className="text-center">{t('dailyNewIntroduced')}: {deck.dailyNewCardsIntroduced}/{deck.newCardsPerDay}</span>
           </div>
           <div className="mt-1 text-center text-muted-foreground text-xs">
               ({t('sessionLimit')}: {deck.maxReviewsPerDay})
