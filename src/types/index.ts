@@ -54,3 +54,10 @@ export interface ReviewLog {
   grade: SRSGrade;   // The grade given
 }
 
+// Test mode specific types
+export type TestField = 'front' | 'reading' | 'translation';
+export type TestSizeOption = '10' | '20' | '50' | 'all';
+export interface TestConfig {
+  isMasteryTest?: boolean;
+}
+

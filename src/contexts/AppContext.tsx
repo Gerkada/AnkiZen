@@ -3,7 +3,7 @@
 
 import type { ReactNode } from 'react';
 import { createContext, useContext, useState, useCallback, useEffect, useMemo } from 'react';
-import type { Deck, Card, UserSettings, AppView, SRSGrade, ReviewLog } from '@/types';
+import type { Deck, Card, UserSettings, AppView, SRSGrade, ReviewLog, TestConfig } from '@/types';
 import useLocalStorage from '@/hooks/useLocalStorage';
 import { calculateNextReview, createNewCard } from '@/lib/srs';
 import { formatISO, parseISO, isBefore, startOfDay, addDays } from 'date-fns';
@@ -40,6 +40,7 @@ interface AppContextState {
   currentView: AppView;
   selectedDeckId: string | null;
   isLoading: boolean;
+  testConfig: TestConfig | null; // For passing params to test view
 
   // Deck Actions
   addDeck: (name: string) => Deck;
@@ -47,6 +48,7 @@ interface AppContextState {
   updateDeck: (deckId: string, updates: Partial<Omit<Deck, 'id' | 'createdAt'>>) => void;
   deleteDeck: (deckId: string) => void;
   importCardsToDeck: (deckId: string, parsedCardsData: ParsedCardData[]) => ImportResult;
+  markDeckAsLearned: (deckId: string) => void;
   
   // Card Actions
   addCardToDeck: (deckId: string, front: string, reading: string, translation: string) => Card;
@@ -59,6 +61,7 @@ interface AppContextState {
   setCurrentView: (view: AppView) => void;
   setSelectedDeckId: (deckId: string | null) => void;
   updateUserSettings: (settings: Partial<UserSettings>) => void;
+  setTestConfig: (config: TestConfig | null) => void;
 
   // Derived State / Helpers
   getDeckById: (deckId: string) => Deck | undefined;
@@ -85,6 +88,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [currentView, setCurrentViewInternal] = useState<AppView>('deck-list');
   const [selectedDeckId, setSelectedDeckIdInternal] = useState<string | null>(userSettings.lastStudiedDeckId || null);
   const [isLoading, setIsLoading] = useState(true); 
+  const [testConfig, setTestConfigInternal] = useState<TestConfig | null>(null);
   const { toast } = useToast();
   const t = getTranslator(userSettings.language);
 
@@ -169,6 +173,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setUserSettingsState(prev => ({...prev, lastStudiedDeckId: deckId }));
   }, [setUserSettingsState]);
 
+  const setTestConfig = useCallback((config: TestConfig | null) => {
+    setTestConfigInternal(config);
+  }, []);
 
   const updateUserSettings = useCallback((settings: Partial<UserSettings>) => {
     setUserSettingsState(prev => ({ ...prev, ...settings }));
@@ -295,7 +302,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         toast({
           title: t('leechNotificationTitle'),
           description: t('leechNotificationMessage', { cardFront: card.front }),
-          variant: "destructive", // Or a custom "warning" variant if available/desired
+          variant: "destructive", 
           duration: 5000,
         });
       }
@@ -347,7 +354,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           ...c,
           dueDate: now,
           interval: 0,
-          easeFactor: 2.5, // Reset ease factor
+          easeFactor: 2.5, 
           repetitions: 0,
           againCount: 0,
           consecutiveAgainCount: 0,
@@ -361,6 +368,36 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setReviewLogs(prevLogs => prevLogs.filter(log => log.deckId !== deckId));
   }, [setCards, updateDeck, setReviewLogs]);
 
+  const markDeckAsLearned = useCallback((deckId: string) => {
+    const now = formatISO(new Date());
+    const learnedInterval = 90; // days
+    const dueDate = formatISO(addDays(startOfDay(new Date()), learnedInterval));
+
+    setCards(prevCards => 
+      prevCards.map(card => {
+        if (card.deckId === deckId) {
+          return {
+            ...card,
+            interval: learnedInterval,
+            dueDate,
+            easeFactor: 2.5, // Reset to default or a good value
+            repetitions: 5, // Mark as having several successful repetitions
+            isLeech: false,
+            againCount: 0,
+            consecutiveAgainCount: 0,
+            updatedAt: now,
+          };
+        }
+        return card;
+      })
+    );
+    const deck = getDeckById(deckId);
+    if(deck){
+      toast({ title: t('successTitle'), description: t('deckMarkedLearned', { deckName: deck.name }) });
+    }
+  }, [setCards, t, toast]);
+
+
   const getDeckById = useCallback((deckId: string) => decks.find(d => d.id === deckId), [decks]);
   
   const getCardsByDeckId = useCallback((deckId: string) => cards.filter(c => c.deckId === deckId), [cards]);
@@ -369,10 +406,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const currentDeck = getDeckById(deckId);
     if (!currentDeck) return { due: [], newCards: [] };
 
-    const allDeckCards = getCardsByDeckId(deckId).filter(card => !card.isLeech); // Exclude leeches from normal queue
+    const allDeckCards = getCardsByDeckId(deckId).filter(card => !card.isLeech); 
     const today = startOfDay(new Date());
     const due: Card[] = [];
-    const potentialNewCards: Card[] = [];
+    const potentialNewCards: CardType[] = [];
 
     allDeckCards.forEach(card => {
       if (card.repetitions === 0) { 
@@ -395,16 +432,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [cards, getCardsByDeckId, getDeckById, decks]);
 
   const contextValue = useMemo(() => ({
-    decks, cards, userSettings, reviewLogs, currentView, selectedDeckId, isLoading,
-    addDeck, renameDeck, updateDeck, deleteDeck, importCardsToDeck,
+    decks, cards, userSettings, reviewLogs, currentView, selectedDeckId, isLoading, testConfig,
+    addDeck, renameDeck, updateDeck, deleteDeck, importCardsToDeck, markDeckAsLearned,
     addCardToDeck, updateCard, deleteCard, reviewCard, resetDeckProgress,
-    setCurrentView, setSelectedDeckId, updateUserSettings,
+    setCurrentView, setSelectedDeckId, updateUserSettings, setTestConfig,
     getDeckById, getCardsByDeckId, getDueCardsForDeck
   }), [
-    decks, cards, userSettings, reviewLogs, currentView, selectedDeckId, isLoading,
-    addDeck, renameDeck, updateDeck, deleteDeck, importCardsToDeck,
+    decks, cards, userSettings, reviewLogs, currentView, selectedDeckId, isLoading, testConfig,
+    addDeck, renameDeck, updateDeck, deleteDeck, importCardsToDeck, markDeckAsLearned,
     addCardToDeck, updateCard, deleteCard, reviewCard, resetDeckProgress,
-    setCurrentView, setSelectedDeckId, updateUserSettings,
+    setCurrentView, setSelectedDeckId, updateUserSettings, setTestConfig,
     getDeckById, getCardsByDeckId, getDueCardsForDeck
   ]);
 
