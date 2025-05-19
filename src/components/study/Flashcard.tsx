@@ -30,10 +30,7 @@ export default function Flashcard({ card, isFlipped, onFlip, showAnswerButton = 
       <div 
         className={`flashcard-container w-full rounded-lg cursor-pointer relative ${isFlipped ? 'flipped' : ''}`} 
         onClick={onFlip}
-        // minHeight ensures the card face itself has a substantial size.
-        // p-6 on front/back faces provides 1.5rem padding top/bottom.
-        // 14rem minHeight - 3rem padding = 11rem for content.
-        style={{ minHeight: '14rem' }} 
+        // minHeight used to be here, moved to globals.css for direct application
       >
         <div className="flashcard-inner"> 
           {/* flashcard-front and flashcard-back are inside flashcard-inner */}
