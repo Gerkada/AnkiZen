@@ -28,9 +28,8 @@ export default function Flashcard({ card, isFlipped, onFlip, showAnswerButton = 
     >
       {/* The actual flippable card element */}
       <div 
-        className={`flashcard-container w-full rounded-lg cursor-pointer relative ${isFlipped ? 'flipped' : ''}`} 
+        className={`flashcard-container w-full rounded-lg cursor-pointer relative min-h-80 ${isFlipped ? 'flipped' : ''}`} 
         onClick={onFlip}
-        // minHeight used to be here, moved to globals.css for direct application
       >
         <div className="flashcard-inner"> 
           {/* flashcard-front and flashcard-back are inside flashcard-inner */}
