@@ -6,9 +6,9 @@ import { createContext, useContext, useState, useCallback, useEffect, useMemo } 
 import type { Deck, Card, UserSettings, AppView, SRSGrade, ReviewLog, TestConfig } from '@/types';
 import useLocalStorage from '@/hooks/useLocalStorage';
 import { calculateNextReview, createNewCard } from '@/lib/srs';
-import { formatISO, parseISO, isBefore, startOfDay, addDays } from 'date-fns';
+import { formatISO, parseISO, isBefore, startOfDay, addDays, isAfter } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
-import { getTranslator } from '@/lib/i18n'; // For toast translations
+import { getTranslator } from '@/lib/i18n'; 
 
 interface ParsedCardData {
   front: string;
@@ -24,8 +24,8 @@ interface ImportResult {
 // Leech thresholds
 const LEECH_CONSECUTIVE_AGAIN_THRESHOLD = 4;
 const LEECH_TOTAL_AGAIN_THRESHOLD = 8;
-const LEECH_SUSPEND_INTERVAL_DAYS = 180; // Suspend for ~6 months
-const LEECH_INTERVAL_MATURITY_THRESHOLD = 21; // Don't mark as leech on total_again if already interval > 21 days
+const LEECH_SUSPEND_INTERVAL_DAYS = 180; 
+const LEECH_INTERVAL_MATURITY_THRESHOLD = 21; 
 const LEECH_MIN_EASE_FACTOR = 1.3;
 
 // Default deck settings
@@ -46,7 +46,7 @@ interface AppContextState {
   currentView: AppView;
   selectedDeckId: string | null;
   isLoading: boolean;
-  testConfig: TestConfig | null; // For passing params to test view
+  testConfig: TestConfig | null; 
 
   // Deck Actions
   addDeck: (name: string) => Deck;
@@ -62,6 +62,10 @@ interface AppContextState {
   deleteCard: (cardId: string) => void;
   reviewCard: (cardId: string, grade: SRSGrade) => void;
   resetDeckProgress: (deckId: string) => void;
+  suspendCard: (cardId: string) => void;
+  unsuspendCard: (cardId: string) => void;
+  buryCardUntilTomorrow: (cardId: string) => void;
+
 
   // UI Actions
   setCurrentView: (view: AppView) => void;
@@ -171,6 +175,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
         if (typeof card.isLeech === 'undefined') {
             newCardProps.isLeech = false;
+            cardNeedsUpdate = true;
+        }
+        if (typeof card.isSuspended === 'undefined') {
+            newCardProps.isSuspended = false;
+            cardNeedsUpdate = true;
+        }
+        if (typeof card.buriedUntil === 'undefined') { // Note: could be null, so check for undefined
+            newCardProps.buriedUntil = null;
             cardNeedsUpdate = true;
         }
         if (cardNeedsUpdate) updatedCardsFlag = true;
@@ -381,6 +393,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
           againCount: 0,
           consecutiveAgainCount: 0,
           isLeech: false,
+          isSuspended: false,
+          buriedUntil: null,
           updatedAt: now,
         };
       }
@@ -393,11 +407,33 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setReviewLogs(prevLogs => prevLogs.filter(log => log.deckId !== deckId));
   }, [setCards, updateDeck, setReviewLogs]);
 
+  const suspendCard = useCallback((cardId: string) => {
+    updateCard({ id: cardId, isSuspended: true });
+    toast({ title: t('successTitle'), description: t('cardSuspendedMsg')});
+  }, [updateCard, toast, t]);
+
+  const unsuspendCard = useCallback((cardId: string) => {
+    updateCard({ 
+      id: cardId, 
+      isSuspended: false, 
+      buriedUntil: null, // Clear any bury state
+      dueDate: formatISO(new Date()) // Make due now
+    });
+    toast({ title: t('successTitle'), description: t('cardUnsuspendedMsg')});
+  }, [updateCard, toast, t]);
+  
+  const buryCardUntilTomorrow = useCallback((cardId: string) => {
+    const tomorrow = addDays(startOfDay(new Date()), 1);
+    updateCard({ id: cardId, buriedUntil: formatISO(tomorrow) });
+    toast({ title: t('successTitle'), description: t('cardBuriedMsg')});
+  }, [updateCard, toast, t]);
+
+
   const getDeckById = useCallback((deckId: string) => decks.find(d => d.id === deckId), [decks]);
   
   const markDeckAsLearned = useCallback((deckId: string) => {
     const now = formatISO(new Date());
-    const learnedInterval = 90; // days
+    const learnedInterval = 90; 
     const dueDate = formatISO(addDays(startOfDay(new Date()), learnedInterval));
 
     setCards(prevCards => 
@@ -407,32 +443,39 @@ export function AppProvider({ children }: { children: ReactNode }) {
             ...card,
             interval: learnedInterval,
             dueDate,
-            easeFactor: 2.5, // Reset to default or a good value
-            repetitions: 5, // Mark as having several successful repetitions
+            easeFactor: 2.5, 
+            repetitions: 5, 
             isLeech: false,
             againCount: 0,
             consecutiveAgainCount: 0,
+            isSuspended: false,
+            buriedUntil: null,
             updatedAt: now,
           };
         }
         return card;
       })
     );
-    const deck = getDeckById(deckId); // Access getDeckById via closure
+    const deck = decks.find(d => d.id === deckId);
     if(deck){
       toast({ title: t('successTitle'), description: t('deckMarkedLearned', { deckName: deck.name }) });
     }
-  }, [setCards, toast]); // Removed getDeckById and t from explicit dependencies
+  }, [setCards, decks, toast, t]); 
 
 
   const getCardsByDeckId = useCallback((deckId: string) => cards.filter(c => c.deckId === deckId), [cards]);
 
   const getDueCardsForDeck = useCallback((deckId: string) => {
-    const currentDeck = getDeckById(deckId); // Access getDeckById via closure
+    const currentDeck = decks.find(d => d.id === deckId); 
     if (!currentDeck) return { due: [], newCards: [] };
 
-    const allDeckCards = getCardsByDeckId(deckId).filter(card => !card.isLeech); // Access getCardsByDeckId via closure
     const today = startOfDay(new Date());
+    const allDeckCards = cards.filter(card => 
+        card.deckId === deckId && 
+        !card.isLeech &&
+        !card.isSuspended &&
+        (!card.buriedUntil || isAfter(today, parseISO(card.buriedUntil)) || isSameDay(today, parseISO(card.buriedUntil)))
+    );
     
     let potentialNewCards: Card[] = [];
     let dueReviewCards: Card[] = [];
@@ -441,8 +484,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (card.repetitions === 0) {
         potentialNewCards.push(card);
       } else {
-        const dueDate = parseISO(card.dueDate);
-        if (isBefore(dueDate, today) || dueDate.getTime() === today.getTime()) {
+        const dueDateObj = parseISO(card.dueDate);
+        if (isBefore(dueDateObj, today) || dueDateObj.getTime() === today.getTime()) {
           dueReviewCards.push(card);
         }
       }
@@ -458,21 +501,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const actualDueCards = dueReviewCards.slice(0, remainingSessionCapacity);
 
     return { due: actualDueCards, newCards: actualNewCards };
-  }, [cards, decks]); // Removed getDeckById and getCardsByDeckId from explicit dependencies
+  }, [cards, decks]); 
 
 
   const contextValue = useMemo(() => ({
     decks, cards, userSettings, reviewLogs, currentView, selectedDeckId, isLoading, testConfig,
     addDeck, renameDeck, updateDeck, deleteDeck, importCardsToDeck, markDeckAsLearned,
     addCardToDeck, updateCard, deleteCard, reviewCard, resetDeckProgress,
+    suspendCard, unsuspendCard, buryCardUntilTomorrow, // Added new card actions
     setCurrentView, setSelectedDeckId, updateUserSettings, setTestConfig,
     getDeckById, getCardsByDeckId, getDueCardsForDeck
   }), [
     decks, cards, userSettings, reviewLogs, currentView, selectedDeckId, isLoading, testConfig,
     addDeck, renameDeck, updateDeck, deleteDeck, importCardsToDeck, markDeckAsLearned,
     addCardToDeck, updateCard, deleteCard, reviewCard, resetDeckProgress,
+    suspendCard, unsuspendCard, buryCardUntilTomorrow, // Added new card actions
     setCurrentView, setSelectedDeckId, updateUserSettings, setTestConfig,
-    getDeckById, getCardsByDeckId, getDueCardsForDeck // These are now stable references due to their own useCallback
+    getDeckById, getCardsByDeckId, getDueCardsForDeck 
   ]);
 
   return <AppContext.Provider value={contextValue}>{children}</AppContext.Provider>;
@@ -486,5 +531,10 @@ export const useApp = () => {
   return context;
 };
 
-
+// Helper for getDueCardsForDeck to check if a date is today or in the past
+const isSameDay = (date1: Date, date2: Date): boolean => {
+    return date1.getFullYear() === date2.getFullYear() &&
+           date1.getMonth() === date2.getMonth() &&
+           date1.getDate() === date2.getDate();
+}
     

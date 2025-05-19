@@ -83,6 +83,7 @@ export default function HelpDialog({ isOpen, onOpenChange }: HelpDialogProps) {
             <li dangerouslySetInnerHTML={{ __html: t('helpManagingCardsAddNew') }}></li>
             <li dangerouslySetInnerHTML={{ __html: t('helpManagingCardsEditExisting') }}></li>
             <li dangerouslySetInnerHTML={{ __html: t('helpManagingCardsDelete') }}></li>
+            <li dangerouslySetInnerHTML={{ __html: t('helpManagingCardsSuspend') }}></li>
           </ul>
         </>
       ),

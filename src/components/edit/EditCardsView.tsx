@@ -6,12 +6,13 @@ import type { Card as CardType } from '@/types';
 import { useApp } from '@/contexts/AppContext';
 import { useLanguage } from '@/contexts/LanguageProvider';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, PlusCircle, Edit2, Trash2, Bug } from 'lucide-react'; // Added Bug icon
+import { ArrowLeft, PlusCircle, Edit2, Trash2, Bug, MoreVertical, Ban, RotateCcw } from 'lucide-react'; 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import CardEditor from './CardEditor';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'; // Added Tooltip components
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 
 
 export default function EditCardsView() {
@@ -21,6 +22,8 @@ export default function EditCardsView() {
     getCardsByDeckId, 
     setCurrentView,
     deleteCard,
+    suspendCard,
+    unsuspendCard,
   } = useApp();
   const { t } = useLanguage();
 
@@ -79,6 +82,14 @@ export default function EditCardsView() {
     }
   };
 
+  const handleToggleSuspend = (card: CardType) => {
+    if (card.isSuspended) {
+      unsuspendCard(card.id);
+    } else {
+      suspendCard(card.id);
+    }
+  };
+
   return (
     <div className="p-4 md:p-6 space-y-6">
       <div className="flex justify-between items-center">
@@ -119,9 +130,21 @@ export default function EditCardsView() {
               </TableHeader>
               <TableBody>
                 {sortedCards.map((card) => (
-                  <TableRow key={card.id}>
+                  <TableRow key={card.id} className={card.isSuspended ? 'opacity-50' : ''}>
                     <TableCell className="font-medium truncate max-w-xs flex items-center">
-                      {card.isLeech && (
+                       {card.isSuspended && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                               <Ban className="h-4 w-4 mr-2 text-muted-foreground flex-shrink-0" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>{t('suspendedCardTooltip')}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+                      {card.isLeech && !card.isSuspended && ( // Only show leech if not also suspended, to avoid icon clutter
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>
@@ -138,12 +161,40 @@ export default function EditCardsView() {
                     <TableCell className="truncate max-w-xs">{card.reading || '-'}</TableCell>
                     <TableCell className="truncate max-w-xs">{card.translation}</TableCell>
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="icon" onClick={() => handleEdit(card)} className="mr-2" aria-label={t('editCard')}>
-                        <Edit2 className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleDeleteConfirm(card)} className="text-destructive hover:text-destructive" aria-label={t('deleteCard')}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" aria-label={t('moreActions')}>
+                                    <MoreVertical className="h-4 w-4" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleEdit(card)} className="cursor-pointer">
+                                    <Edit2 className="mr-2 h-4 w-4" />
+                                    {t('editCard')}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleToggleSuspend(card)} className="cursor-pointer">
+                                    {card.isSuspended ? (
+                                        <>
+                                            <RotateCcw className="mr-2 h-4 w-4" />
+                                            {t('unsuspendCard')}
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Ban className="mr-2 h-4 w-4" />
+                                            {t('suspendCard')}
+                                        </>
+                                    )}
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem 
+                                    onClick={() => handleDeleteConfirm(card)} 
+                                    className="text-destructive focus:text-destructive focus:bg-destructive/10 cursor-pointer"
+                                >
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    {t('deleteCard')}
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 ))}

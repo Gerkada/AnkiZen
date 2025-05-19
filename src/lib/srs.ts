@@ -50,7 +50,7 @@ export function calculateNextReview(
     }
   }
   
-  if (grade !== 'again' && card.repetitions > 0) { // This check might be redundant if newRepetitions logic is correct
+  if (grade !== 'again' && card.repetitions > 0) { 
     newInterval = Math.max(1, newInterval);
   }
 
@@ -81,6 +81,8 @@ export function createNewCard(deckId: string, front: string, reading: string, tr
     againCount: 0,
     consecutiveAgainCount: 0,
     isLeech: false,
+    isSuspended: false,
+    buriedUntil: null,
     createdAt: now,
     updatedAt: now,
   };

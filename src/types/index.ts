@@ -19,6 +19,9 @@ export interface Card {
   againCount: number;
   consecutiveAgainCount: number;
   isLeech: boolean;
+  // Card states
+  isSuspended?: boolean;
+  buriedUntil?: string | null; // ISO date string for when the card is no longer buried
   createdAt: string; // ISO date string
   updatedAt: string; // ISO date string
 }
@@ -59,6 +62,7 @@ export interface ReviewLog {
 
 // Test mode specific types
 export type TestField = 'front' | 'reading' | 'translation';
+export type TestVariant = 'multipleChoice' | 'typedInput';
 export type TestSizeOption = '10' | '20' | '50' | 'all';
 export interface TestConfig {
   isMasteryTest?: boolean;
