@@ -94,8 +94,14 @@ export default function HelpDialog({ isOpen, onOpenChange }: HelpDialogProps) {
           <ul className="list-disc pl-5 mb-2 space-y-1">
             <li dangerouslySetInnerHTML={{ __html: t('helpTestModeConfigQuestionField')}}></li>
             <li dangerouslySetInnerHTML={{ __html: t('helpTestModeConfigAnswerField')}}></li>
+            <li dangerouslySetInnerHTML={{ __html: t('helpTestModeConfigTestVariant')}}></li>
             <li dangerouslySetInnerHTML={{ __html: t('helpTestModeConfigTestSize')}}></li>
             <li dangerouslySetInnerHTML={{ __html: t('helpTestModeConfigHintToggle')}}></li>
+          </ul>
+           <h4 className="font-semibold mt-3 mb-1">{t('helpTestModeAnsweringTitle')}</h4>
+           <ul className="list-disc pl-5 mb-2 space-y-1">
+            <li dangerouslySetInnerHTML={{ __html: t('helpTestModeAnsweringMultipleChoice')}}></li>
+            <li dangerouslySetInnerHTML={{ __html: t('helpTestModeAnsweringTypedInput')}}></li>
           </ul>
           <h4 className="font-semibold mt-3 mb-1">{t('helpTestModeMasteryTitle')}</h4>
           <p className="mb-2" dangerouslySetInnerHTML={{ __html: t('helpTestModeMasteryP1')}}></p>
