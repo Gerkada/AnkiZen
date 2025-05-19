@@ -2,7 +2,7 @@
 "use client";
 
 import Link from 'next/link';
-import { Moon, Sun, Settings2, BarChartHorizontalBig, HelpCircle } from 'lucide-react'; // Added HelpCircle
+import { Moon, Sun, Settings2, BarChartHorizontalBig, HelpCircle, FileText } from 'lucide-react'; // Added FileText
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -20,14 +20,16 @@ import type { Language } from '@/types';
 import { translations, defaultLang } from '@/lib/i18n';
 import { useState, useEffect } from 'react';
 import { useApp } from '@/contexts/AppContext';
-import HelpDialog from '@/components/help/HelpDialog'; // Added HelpDialog import
+import HelpDialog from '@/components/help/HelpDialog';
+import ChangelogDialog from '@/components/changelog/ChangelogDialog'; // Added ChangelogDialog import
 
 export default function AppHeader() {
   const { theme, toggleTheme } = useTheme();
   const { language, setLanguage, t } = useLanguage();
   const { setCurrentView } = useApp();
   const [isClient, setIsClient] = useState(false);
-  const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false); // State for Help Dialog
+  const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false);
+  const [isChangelogDialogOpen, setIsChangelogDialogOpen] = useState(false); // State for Changelog Dialog
 
   useEffect(() => {
     setIsClient(true);
@@ -51,6 +53,9 @@ export default function AppHeader() {
             {isClient ? t('appName') : translations[defaultLang].appName}
           </Link>
           <div className="flex items-center space-x-2">
+            <Button variant="outline" size="icon" onClick={() => setIsChangelogDialogOpen(true)} aria-label={isClient ? t('changelogTitle') : translations[defaultLang].changelogTitle}>
+              <FileText className="h-5 w-5" />
+            </Button>
             <Button variant="outline" size="icon" onClick={() => setIsHelpDialogOpen(true)} aria-label={isClient ? t('helpTitle') : translations[defaultLang].helpTitle}>
               <HelpCircle className="h-5 w-5" />
             </Button>
@@ -88,6 +93,7 @@ export default function AppHeader() {
         </div>
       </header>
       <HelpDialog isOpen={isHelpDialogOpen} onOpenChange={setIsHelpDialogOpen} />
+      <ChangelogDialog isOpen={isChangelogDialogOpen} onOpenChange={setIsChangelogDialogOpen} />
     </>
   );
 }
