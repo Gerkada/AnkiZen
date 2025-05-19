@@ -17,21 +17,21 @@ export default function Flashcard({ card, isFlipped, onFlip, showAnswerButton = 
   const { t } = useLanguage();
 
   const frontContent = swapFrontBack ? card.translation : card.front;
-  const backContent = swapFrontBack 
-    ? { main: card.front, secondary: card.reading } 
+  const backContent = swapFrontBack
+    ? { main: card.front, secondary: card.reading }
     : { main: card.reading, secondary: card.translation };
 
   return (
     // Overall wrapper for the flashcard unit (card faces + optional button)
-    <div 
+    <div
       className="w-full max-w-lg flex flex-col items-center"
     >
-      {/* The actual flippable card element */}
-      <div 
-        className={`flashcard-container w-full rounded-lg cursor-pointer relative min-h-80 ${isFlipped ? 'flipped' : ''}`} 
+      {/* The actual flippable card element container */}
+      <div
+        className={`flashcard-container w-full rounded-lg cursor-pointer relative min-h-80 flex ${isFlipped ? 'flipped' : ''}`}
         onClick={onFlip}
       >
-        <div className="flashcard-inner h-full"> {/* Added h-full here */}
+        <div className="flashcard-inner w-full h-full"> {/* Ensured w-full and h-full */}
           {/* flashcard-front and flashcard-back are inside flashcard-inner */}
           {/* They are position:absolute and fill flashcard-inner (height:100% from globals.css) */}
           <div className="flashcard-front">
@@ -53,10 +53,10 @@ export default function Flashcard({ card, isFlipped, onFlip, showAnswerButton = 
 
       {/* The "Show Answer" button, placed below the card by the flex-col */}
       {showAnswerButton && !isFlipped && (
-        <Button 
-          onClick={(e) => { e.stopPropagation(); onFlip(); }} 
+        <Button
+          onClick={(e) => { e.stopPropagation(); onFlip(); }}
           className="mt-4 w-full"
-        > 
+        >
           {t('showAnswer')}
         </Button>
       )}
