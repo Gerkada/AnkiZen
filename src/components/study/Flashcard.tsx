@@ -31,7 +31,7 @@ export default function Flashcard({ card, isFlipped, onFlip, showAnswerButton = 
         className={`flashcard-container w-full rounded-lg cursor-pointer relative min-h-80 ${isFlipped ? 'flipped' : ''}`} 
         onClick={onFlip}
       >
-        <div className="flashcard-inner"> 
+        <div className="flashcard-inner h-full"> {/* Added h-full here */}
           {/* flashcard-front and flashcard-back are inside flashcard-inner */}
           {/* They are position:absolute and fill flashcard-inner (height:100% from globals.css) */}
           <div className="flashcard-front">
