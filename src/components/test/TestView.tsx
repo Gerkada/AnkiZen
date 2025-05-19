@@ -54,7 +54,6 @@ export default function TestView() {
   const { toast } = useToast();
 
   const [rawDeckCards, setRawDeckCards] = useState<CardType[]>([]);
-  const [testableCards, setTestableCards] = useState<CardType[]>([]);
   const [currentTestQueue, setCurrentTestQueue] = useState<CardType[]>([]);
 
   const [questionCard, setQuestionCard] = useState<CardType | null>(null);
@@ -70,7 +69,7 @@ export default function TestView() {
 
   const [questionField, setQuestionField] = useState<TestField>('front');
   const [answerField, setAnswerField] = useState<TestField>('translation');
-  const [allowHints, setAllowHints] = useState(false);
+  const [allowHints, setAllowHints] = useState(false); // Default to OFF
   const [notEnoughCardsMessage, setNotEnoughCardsMessage] = useState<string | null>(null);
 
   const [isMasteryRun, setIsMasteryRun] = useState(false);
@@ -105,23 +104,29 @@ export default function TestView() {
     setTypedFeedback(null);
     setTypedAnswer('');
     setIsAnswered(false);
-    setNotEnoughCardsMessage(null); // Clear any error message on config change
+    setNotEnoughCardsMessage(null); 
     if (isMasteryRun) {
         setMasteryTestAllCorrect(true);
     }
-  }, [isMasteryRun]); 
+  }, [isMasteryRun, t]); // t removed as it's stable per language context
 
   useEffect(() => {
     if (testConfig?.isMasteryTest) {
       setIsMasteryRun(true);
       setTestSizeOption('all');
-      setMasteryTestAllCorrect(true);
+      // masteryTestAllCorrect is set in handleTestConfigChange
       setTestConfig(null); // Consume the config
       handleTestConfigChange(); 
     }
   }, [testConfig, setTestConfig, handleTestConfigChange]);
 
+  // Effect to populate rawDeckCards when deck/custom session changes
   useEffect(() => {
+    if (isAppContextLoading) {
+        setRawDeckCards([]); // Ensure it's empty while context loads
+        return;
+    }
+
     let initialCards: CardType[] = [];
     if (selectedDeckId) {
         if (isCustomSessionActive && customStudyParams) {
@@ -136,45 +141,57 @@ export default function TestView() {
         } else {
             initialCards = getCardsByDeckId(selectedDeckId);
         }
+    } else if (isCustomSessionActive && customStudyParams) { 
+        // This case handles custom session that might not have set selectedDeckId explicitly in context
+        // (e.g., if TestView was reached via a direct link with custom params)
+        const allCardsForDeck = getCardsByDeckId(customStudyParams.deckId);
+        let filtered = allCardsForDeck;
+        if (customStudyParams.tagsToInclude.length > 0) {
+            filtered = filtered.filter(card =>
+                (card.tags || []).some(tag => customStudyParams.tagsToInclude.includes(tag))
+            );
+        }
+        initialCards = shuffleArray(filtered).slice(0, customStudyParams.limit);
     }
     setRawDeckCards(initialCards);
-    handleTestConfigChange(); 
-  }, [selectedDeckId, getCardsByDeckId, isCustomSessionActive, customStudyParams, handleTestConfigChange]);
+  }, [selectedDeckId, getCardsByDeckId, isCustomSessionActive, customStudyParams, isAppContextLoading]);
 
 
+  // Effect to reset test state when configuration parameters change
   useEffect(() => {
-    if (questionField === answerField) {
-      if (questionField === 'front') setAnswerField('translation');
-      else if (questionField === 'translation') setAnswerField('front');
-      else setAnswerField('front');
-      return;
-    }
+    handleTestConfigChange();
+  }, [questionField, answerField, testVariant, testSizeOption, selectedDeckId, isCustomSessionActive, handleTestConfigChange]);
 
-    const filtered = rawDeckCards.filter(card => {
+
+  const testableCards = useMemo(() => {
+    return rawDeckCards.filter(card => {
       const qVal = card[questionField];
       const aVal = card[answerField];
       if (card.isSuspended) return false;
       return qVal && qVal.trim() !== '' && aVal && aVal.trim() !== '';
     });
-    setTestableCards(filtered);
   }, [questionField, answerField, rawDeckCards]);
 
+
+  // Effect to build the currentTestQueue and check for sufficient cards
   useEffect(() => {
-    if (isAppContextLoading) { 
+    if (isAppContextLoading) {
       setCurrentTestQueue([]);
-      setNotEnoughCardsMessage(null);
+      // Don't set notEnoughCardsMessage here; let render guard handle global loading
       return;
     }
-    
+
     if (!selectedDeckId && !isCustomSessionActive){ 
         setCurrentTestQueue([]);
         setNotEnoughCardsMessage(null); 
-        setIsTestOver(true); 
+        setIsTestOver(true); // No deck, so test is "over"
+        setQuestionCard(null);
         return;
     }
     
+    // This check is now more reliable as rawDeckCards population waits for appContextLoading
     if (rawDeckCards.length === 0 && (selectedDeckId || isCustomSessionActive)) {
-        setNotEnoughCardsMessage(t('noCardsMatchTestSettings')); // Could be more specific, e.g., "Deck is empty"
+        setNotEnoughCardsMessage(t('noCardsMatchTestSettings')); // Source deck is empty or custom filter yielded nothing
         setIsTestOver(true);
         setQuestionCard(null);
         setCurrentTestQueue([]);
@@ -188,7 +205,7 @@ export default function TestView() {
       specificMessageKey = 'notEnoughCardsForTestOptions';
     }
 
-    if (testableCards.length === 0) { // This implies rawDeckCards might have items, but none match Q/A filters
+    if (testableCards.length === 0 && rawDeckCards.length > 0) { // Cards exist but none match Q/A type
         setNotEnoughCardsMessage(t('noCardsMatchTestSettings'));
         setIsTestOver(true);
         setQuestionCard(null);
@@ -203,29 +220,35 @@ export default function TestView() {
         return;
     }
 
-    setNotEnoughCardsMessage(null); 
+    setNotEnoughCardsMessage(null); // All checks passed, clear any previous message
 
     let queue: CardType[] = [];
     if (testSizeOption === 'all' || isMasteryRun || isCustomSessionActive) {
       queue = shuffleArray([...testableCards]);
     } else {
       const size = parseInt(testSizeOption, 10);
-      if (testableCards.length <= size) {
-        queue = shuffleArray([...testableCards]);
-      } else {
-        queue = shuffleArray([...testableCards]).slice(0, size);
-      }
+      queue = shuffleArray([...testableCards]).slice(0, Math.min(size, testableCards.length));
     }
     
-    if (queue.length === 0) { // Should be caught by earlier checks, but as a fallback
+    setCurrentTestQueue(queue);
+    // If queue length is 0 after all this, it means testableCards somehow resulted in an empty queue for the size.
+    // This should ideally be caught by the earlier testableCards.length checks.
+    if (queue.length === 0 && testableCards.length > 0) { // Safety check
         setNotEnoughCardsMessage(t('noCardsMatchTestSettings'));
         setIsTestOver(true);
-    } else if (isTestOver) { // If test was over but now we have a queue (e.g. config changed)
-      setIsTestOver(false);
     }
-    setCurrentTestQueue(queue);
 
-  }, [testableCards, testSizeOption, isMasteryRun, t, rawDeckCards, selectedDeckId, isAppContextLoading, testVariant, isCustomSessionActive]);
+  }, [
+    isAppContextLoading, 
+    rawDeckCards, 
+    testableCards, // Added: re-run if testableCards changes (e.g. Q/A fields change)
+    testSizeOption, 
+    isMasteryRun, 
+    t, 
+    selectedDeckId, 
+    isCustomSessionActive, 
+    testVariant
+  ]);
 
 
   const loadNextQuestion = useCallback(() => {
@@ -234,20 +257,17 @@ export default function TestView() {
     setTypedFeedback(null);
     setTypedAnswer('');
 
-    const queueForNextQuestion = currentTestQueue;
-
-    if (!deck && !isCustomSessionActive) {
+    if (!deck && !isCustomSessionActive && !selectedDeckId) { // More robust check if no context
         setIsTestOver(true);
         setQuestionCard(null);
         setOptions([]);
         return;
     }
     
-    const availableCards = queueForNextQuestion.filter(card => !askedCardIds.has(card.id));
+    const availableCards = currentTestQueue.filter(card => !askedCardIds.has(card.id));
 
     if (availableCards.length === 0) {
-      // Only set isTestOver to true here if the queue itself wasn't empty to begin with
-      if (queueForNextQuestion.length > 0) {
+      if (currentTestQueue.length > 0) { // Only set test over if the queue itself wasn't empty initially
         setIsTestOver(true);
       }
       setQuestionCard(null);
@@ -255,18 +275,18 @@ export default function TestView() {
       return;
     }
 
-    const randomQuestionCard = availableCards[0];
+    const randomQuestionCard = availableCards[0]; // Pick the first from the shuffled queue
     setQuestionCard(randomQuestionCard);
     setAskedCardIds(prev => new Set(prev).add(randomQuestionCard.id));
 
     if (testVariant === 'multipleChoice') {
-      const correctAnswerText = randomQuestionCard[answerField!];
-      const correctAnswerOpt: TestOption = { cardId: randomQuestionCard.id, text: correctAnswerText, isCorrect: true };
+      const correctAnswerText = randomQuestionCard[answerField];
+      const correctAnswerOpt: TestOption = { cardId: randomQuestionCard.id, text: correctAnswerText!, isCorrect: true };
 
-      const incorrectOptionsPool = testableCards
-          .filter(card => card.id !== randomQuestionCard.id && card[answerField!] && card[answerField!].trim() !== '')
-          .map(card => card[answerField!])
-          .filter((text, index, self) => text !== correctAnswerText && self.indexOf(text) === index);
+      const incorrectOptionsPool = testableCards 
+          .filter(card => card.id !== randomQuestionCard.id && card[answerField] && card[answerField]!.trim() !== '')
+          .map(card => card[answerField]!)
+          .filter((text, index, self) => text !== correctAnswerText && self.indexOf(text) === index); 
 
       const shuffledIncorrectPool = shuffleArray(incorrectOptionsPool);
       const incorrectAnswers: TestOption[] = shuffledIncorrectPool.slice(0, MIN_CARDS_FOR_MULTIPLE_CHOICE_OPTIONS - 1).map(text => ({
@@ -274,23 +294,24 @@ export default function TestView() {
       }));
 
       let currentOptionsSet = shuffleArray([correctAnswerOpt, ...incorrectAnswers]);
-
+      
       let dummyCounter = 0;
       while (currentOptionsSet.length < MIN_CARDS_FOR_MULTIPLE_CHOICE_OPTIONS && testableCards.length >= MIN_CARDS_FOR_MULTIPLE_CHOICE_OPTIONS) {
           const dummyOptionText = `${t('testDummyOption')} ${++dummyCounter}`;
           if (!currentOptionsSet.find(opt => opt.text === dummyOptionText)) {
               currentOptionsSet.push({ cardId: `dummy-${crypto.randomUUID()}`, text: dummyOptionText, isCorrect: false});
-          } else if (dummyCounter > testableCards.length * 2) { break; }
+          } else if (dummyCounter > testableCards.length * 2) { break; } // Safety break
       }
       setOptions(currentOptionsSet.slice(0, MIN_CARDS_FOR_MULTIPLE_CHOICE_OPTIONS));
-    } else {
+    } else { // Typed input
       setTimeout(() => typedAnswerInputRef.current?.focus(), 0);
     }
 
-  }, [deck, currentTestQueue, askedCardIds, testableCards, questionField, answerField, t, testVariant, isCustomSessionActive]);
+  }, [deck, currentTestQueue, askedCardIds, testableCards, questionField, answerField, t, testVariant, selectedDeckId, isCustomSessionActive]); // Added selectedDeckId, isCustomSessionActive
 
 
    useEffect(() => {
+    // Load the first question if the queue is ready and no question is loaded yet.
     if (currentTestQueue.length > 0 && !isTestOver && !questionCard && askedCardIds.size === 0) {
       loadNextQuestion();
     }
@@ -367,7 +388,7 @@ export default function TestView() {
     if (testableCards.length >= 10) sizes.push({value: '10', label: t('testSizeSpecific', {count: 10})});
     if (testableCards.length >= 20) sizes.push({value: '20', label: t('testSizeSpecific', {count: 20})});
     if (testableCards.length >= 50) sizes.push({value: '50', label: t('testSizeSpecific', {count: 50})});
-    if (testableCards.length > 0) {
+    if (testableCards.length > 0) { // Ensure 'All' is only added if there are testable cards
         sizes.push({value: 'all', label: t('testSizeAll', {count: testableCards.length})});
     }
     return sizes;
@@ -377,10 +398,8 @@ export default function TestView() {
     if (availableTestSizes.length > 0 && !availableTestSizes.find(s => s.value === testSizeOption)) {
       setTestSizeOption(availableTestSizes.find(s => s.value === 'all')?.value || availableTestSizes[0].value);
     } else if (availableTestSizes.length === 0 && testSizeOption !== 'all' && rawDeckCards.length > 0) {
-      // If no specific sizes are available but there are raw cards (meaning testableCards might be 0 due to filters)
-      // keep 'all' as a potential if it was already set, or default to '10' (which will likely show "not enough cards").
-      // This condition is tricky, the effect building currentTestQueue should primarily handle "not enough cards".
-      // This effect mainly ensures testSizeOption is valid *among available choices*.
+      // Default if no sizes are available but cards exist (might be filtered out)
+      setTestSizeOption(DEFAULT_TEST_SIZE);
     }
   }, [availableTestSizes, testSizeOption, rawDeckCards.length]);
 
@@ -398,7 +417,17 @@ export default function TestView() {
   }, [isTestOver, isMasteryRun, masteryTestAllCorrect, incorrectCount, deck, selectedDeckId, markDeckAsLearned, currentTestQueue.length, askedCardIds.size, toast, t]);
 
 
-  if (isAppContextLoading && !questionCard && !notEnoughCardsMessage) {
+  // --- Rendering Logic ---
+
+  // Primary Loading States
+  const showGlobalLoading = isAppContextLoading && !notEnoughCardsMessage;
+  const showTestSpecificLoading = !isAppContextLoading && 
+                                (selectedDeckId || isCustomSessionActive) && 
+                                rawDeckCards.length === 0 && 
+                                !notEnoughCardsMessage && 
+                                !isTestOver;
+
+  if (showGlobalLoading || showTestSpecificLoading) {
     return (
       <div className="flex flex-col items-center p-4 md:p-6 space-y-6">
         <p>{t('loadingTest')}</p>
@@ -406,6 +435,7 @@ export default function TestView() {
     );
   }
   
+  // No deck selected (and not a custom session)
   if (!deck && !selectedDeckId && !isCustomSessionActive) {
     return (
       <div className="text-center py-10">
@@ -417,7 +447,8 @@ export default function TestView() {
     );
   }
 
-  if (notEnoughCardsMessage && isTestOver) {
+  // Not enough cards for a test (after loading and processing)
+  if (notEnoughCardsMessage) { 
     return (
       <div className="text-center py-10 space-y-4">
          <Alert variant="destructive">
@@ -433,9 +464,10 @@ export default function TestView() {
     );
   }
 
-  if (isTestOver && !notEnoughCardsMessage) {
+  // Test is over (and there was no "not enough cards" error)
+  if (isTestOver) {
      return (
-      <div className="flex flex-col items-center justify-center p-4 md:p-6 space-y-6">
+      <div className="flex flex-col items-center justify-center min-h-[calc(100vh-10rem)] p-4 md:p-6 space-y-6">
         <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle className="text-center text-2xl">
@@ -477,7 +509,8 @@ export default function TestView() {
     );
   }
 
-  if (questionCard && !isTestOver && currentTestQueue.length > 0) {
+  // Question card is ready, test is ongoing
+  if (questionCard && currentTestQueue.length > 0) {
     return (
       <div className="flex flex-col items-center p-4 md:p-6 space-y-6">
         <div className="w-full max-w-3xl mb-2 flex justify-between items-center">
@@ -499,7 +532,7 @@ export default function TestView() {
               <Label htmlFor="questionField">{t('testQuestionFieldLabel')}</Label>
               <Select
                 value={questionField}
-                onValueChange={(value) => { setQuestionField(value as TestField); handleTestConfigChange(); }}
+                onValueChange={(value) => { setQuestionField(value as TestField);}}
                 disabled={isMasteryRun || isCustomSessionActive}
               >
                 <SelectTrigger id="questionField"><SelectValue placeholder={t('testFieldSelectPlaceholder')} /></SelectTrigger>
@@ -514,7 +547,7 @@ export default function TestView() {
               <Label htmlFor="answerField">{t('testAnswerFieldLabel')}</Label>
               <Select
                 value={answerField}
-                onValueChange={(value) => { setAnswerField(value as TestField); handleTestConfigChange(); }}
+                onValueChange={(value) => { setAnswerField(value as TestField);}}
                 disabled={isMasteryRun || isCustomSessionActive}
               >
                 <SelectTrigger id="answerField"><SelectValue placeholder={t('testFieldSelectPlaceholder')} /></SelectTrigger>
@@ -529,7 +562,7 @@ export default function TestView() {
               <Label htmlFor="testVariant">{t('testVariantLabel')}</Label>
               <Select
                 value={testVariant}
-                onValueChange={(value) => { setTestVariant(value as TestVariant); handleTestConfigChange(); }}
+                onValueChange={(value) => { setTestVariant(value as TestVariant);}}
                 disabled={isMasteryRun || isCustomSessionActive}
               >
                 <SelectTrigger id="testVariant"><SelectValue placeholder={t('testVariantSelectPlaceholder')} /></SelectTrigger>
@@ -544,7 +577,7 @@ export default function TestView() {
               <Label htmlFor="testSize">{t('testSizeLabel')}</Label>
               <Select
                   value={testSizeOption}
-                  onValueChange={(value) => { setTestSizeOption(value as TestSizeOption); handleTestConfigChange(); }}
+                  onValueChange={(value) => { setTestSizeOption(value as TestSizeOption);}}
                   disabled={isMasteryRun || isCustomSessionActive || availableTestSizes.length <=1}
               >
                   <SelectTrigger id="testSize"><SelectValue placeholder={t('testSizeSelectPlaceholder')} /></SelectTrigger>
@@ -584,7 +617,7 @@ export default function TestView() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {options.map((option, index) => (
                     <Button
-                      key={option.cardId + index}
+                      key={option.cardId + index} // Ensure unique key
                       variant="outline"
                       className={`p-6 text-lg h-auto whitespace-normal break-words
                         ${isAnswered && feedback?.optionText === option.text ? (feedback.correct ? 'bg-green-500 hover:bg-green-600 text-white' : 'bg-red-500 hover:bg-red-600 text-white') : ''}
@@ -636,12 +669,10 @@ export default function TestView() {
     );
   }
 
-  // Fallback loading or empty state message if other conditions aren't met
+  // Fallback: If none of the above conditions are met (should be rare)
   return (
     <div className="flex flex-col items-center p-4 md:p-6 space-y-6">
       <p>{t('loadingTest')}</p> 
     </div>
   );
 }
-
-    
