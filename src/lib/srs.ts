@@ -3,7 +3,7 @@ import type { Card, SRSGrade } from '@/types';
 import { addDays, formatISO, startOfDay } from 'date-fns';
 
 const MIN_EASE_FACTOR = 1.3;
-const DEFAULT_EASE_FACTOR = 2.5;
+export const DEFAULT_EASE_FACTOR = 2.5;
 
 export interface SRSCustomIntervals {
   good?: number;
@@ -94,3 +94,4 @@ export function createNewCard(deckId: string, front: string, reading: string, tr
     updatedAt: now,
   };
 }
+

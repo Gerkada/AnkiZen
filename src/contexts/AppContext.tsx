@@ -5,8 +5,11 @@ import type { ReactNode } from 'react';
 import { createContext, useContext, useState, useCallback, useEffect, useMemo } from 'react';
 import type { Deck, Card, UserSettings, AppView, SRSGrade, ReviewLog, TestConfig, CustomStudyParams } from '@/types';
 import useLocalStorage from '@/hooks/useLocalStorage';
-import { calculateNextReview, createNewCard, type SRSCustomIntervals } from '@/lib/srs';
-import { formatISO, parseISO, isBefore, startOfDay, addDays, isAfter } from 'date-fns';
+import { calculateNextReview, createNewCard, type SRSCustomIntervals, DEFAULT_EASE_FACTOR } from '@/lib/srs';
+import { 
+  formatISO, parseISO, isBefore, startOfDay, addDays, isAfter, 
+  isSameDay as dateFnsIsSameDay 
+} from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { getTranslator } from '@/lib/i18n'; 
 
@@ -209,7 +212,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   
   const setCurrentView = useCallback((view: AppView) => {
     setCurrentViewInternal(view);
-    // Clear custom study params if navigating away from study/test unless it's a direct navigation to study/test
     if (view !== 'study' && view !== 'test') {
         setCustomStudyParamsInternal(null);
     }
@@ -271,9 +273,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setCards(prev => prev.filter(c => c.deckId !== deckId));
     setReviewLogs(prev => prev.filter(log => log.deckId !== deckId)); 
     if (selectedDeckId === deckId) {
-      setSelectedDeckId(null);
+      setSelectedDeckIdInternal(null); // Use internal setter to avoid loop with userSettings
     }
-  }, [setDecks, setCards, setReviewLogs, selectedDeckId, setSelectedDeckId]);
+  }, [setDecks, setCards, setReviewLogs, selectedDeckId]);
 
   const addCardToDeck = useCallback((deckId: string, front: string, reading: string, translation: string): Card => {
     const newCard = createNewCard(deckId, front, reading, translation);
@@ -370,7 +372,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (!oldIsLeech && newIsLeech) {
         cardUpdates.interval = LEECH_SUSPEND_INTERVAL_DAYS;
         cardUpdates.dueDate = formatISO(addDays(startOfDay(new Date()), LEECH_SUSPEND_INTERVAL_DAYS));
-        cardUpdates.easeFactor = Math.max(LEECH_MIN_EASE_FACTOR, (card.easeFactor || 2.5) - 0.5);
+        cardUpdates.easeFactor = Math.max(LEECH_MIN_EASE_FACTOR, (card.easeFactor || DEFAULT_EASE_FACTOR) - 0.5);
         toast({
           title: t('leechNotificationTitle'),
           description: t('leechNotificationMessage', { cardFront: card.front }),
@@ -392,7 +394,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       if (wasNewCard && grade !== 'again') {
         const todayISO = formatISO(startOfDay(new Date()));
-        let newDailyIntroduced = currentDeck.dailyNewCardsIntroduced;
+        let newDailyIntroduced = currentDeck.dailyNewCardsIntroduced || 0;
         
         if (currentDeck.lastSessionDate !== todayISO) {
           newDailyIntroduced = 1;
@@ -400,14 +402,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
           newDailyIntroduced += 1;
         }
         
-        if (newDailyIntroduced <= currentDeck.newCardsPerDay) {
+        if (newDailyIntroduced <= (currentDeck.newCardsPerDay || DEFAULT_NEW_CARDS_PER_DAY)) {
             updateDeck(card.deckId, {
               dailyNewCardsIntroduced: newDailyIntroduced,
               lastSessionDate: todayISO, 
             });
         } else {
           updateDeck(card.deckId, {
-              dailyNewCardsIntroduced: currentDeck.newCardsPerDay,
+              dailyNewCardsIntroduced: (currentDeck.newCardsPerDay || DEFAULT_NEW_CARDS_PER_DAY),
               lastSessionDate: todayISO,
           });
         }
@@ -424,7 +426,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           ...c,
           dueDate: now,
           interval: 0,
-          easeFactor: 2.5, 
+          easeFactor: DEFAULT_EASE_FACTOR, 
           repetitions: 0,
           againCount: 0,
           consecutiveAgainCount: 0,
@@ -461,7 +463,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   
   const buryCardUntilTomorrow = useCallback((cardId: string) => {
     const tomorrow = addDays(startOfDay(new Date()), 1);
-    updateCard({ id: cardId, buriedUntil: formatISO(tomorrow) });
+    updateCard({ id: cardId, buriedUntil: formatISO(tomorrow), dueDate: formatISO(tomorrow) });
     toast({ title: t('successTitle'), description: t('cardBuriedMsg')});
   }, [updateCard, toast, t]);
 
@@ -472,7 +474,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const now = formatISO(new Date());
     const learnedInterval = 90; 
     const dueDate = formatISO(addDays(startOfDay(new Date()), learnedInterval));
-    const deck = getDeckById(deckId);
+    const deck = decks.find(d => d.id === deckId); // Direct access to decks state
 
     setCards(prevCards => 
       prevCards.map(card => {
@@ -481,7 +483,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             ...card,
             interval: learnedInterval,
             dueDate,
-            easeFactor: 2.5, 
+            easeFactor: DEFAULT_EASE_FACTOR, 
             repetitions: 5, 
             isLeech: false,
             againCount: 0,
@@ -499,56 +501,97 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if(deck){
       toast({ title: t('successTitle'), description: t('deckMarkedLearned', { deckName: deck.name }) });
     }
-  }, [setCards, getDeckById, toast, t]); 
+  }, [setCards, decks, toast, t]); // Depends on `decks` for toast message
 
 
   const getCardsByDeckId = useCallback((deckId: string) => cards.filter(c => c.deckId === deckId), [cards]);
 
-  const getDueCardsForDeck = useCallback((deckId: string, isCustomSession: boolean = false) => {
+  const getDueCardsForDeck = useCallback((deckId: string, isCustomSessionForTest: boolean = false) => {
     const currentDeck = decks.find(d => d.id === deckId); 
     if (!currentDeck) return { due: [], newCards: [] };
 
-    if (isCustomSession) { // For custom sessions, all non-suspended/non-buried cards are considered "new" for the session
-        const allEligibleCards = cards.filter(card => 
-            card.deckId === deckId && 
-            !card.isSuspended &&
-            (!card.buriedUntil || isAfter(parseISO(card.buriedUntil), startOfDay(new Date())))
-        );
-        return { due: [], newCards: allEligibleCards }; // No distinction for "due" in this custom context
-    }
-
     const today = startOfDay(new Date());
-    const allDeckCards = cards.filter(card => 
-        card.deckId === deckId && 
-        !card.isLeech && 
-        !card.isSuspended &&
-        (!card.buriedUntil || isAfter(today, parseISO(card.buriedUntil)) || isSameDay(today, parseISO(card.buriedUntil)))
-    );
+
+    const allValidCardsForSession = cards.filter(card => {
+        if (card.deckId !== deckId || card.isSuspended) return false;
+        if (card.isLeech && !isCustomSessionForTest) return false; 
+        
+        const buriedUntilDate = card.buriedUntil ? parseISO(card.buriedUntil) : null;
+        if (buriedUntilDate && (dateFnsIsSameDay(buriedUntilDate, today) || isAfter(buriedUntilDate, today))) {
+            return false; // Card is buried for today or a future date
+        }
+        return true;
+    });
+
+    if (isCustomSessionForTest) { // If called from TestView for its raw pool in non-custom mode
+        return { due: [], newCards: allValidCardsForSession };
+    }
     
     let potentialNewCards: Card[] = [];
-    let dueReviewCards: Card[] = [];
+    let potentialReviewCards: Card[] = [];
 
-    allDeckCards.forEach(card => {
+    allValidCardsForSession.forEach(card => {
       if (card.repetitions === 0) {
         potentialNewCards.push(card);
       } else {
-        const dueDateObj = parseISO(card.dueDate);
-        if (isBefore(dueDateObj, today) || dueDateObj.getTime() === today.getTime()) {
-          dueReviewCards.push(card);
-        }
+        potentialReviewCards.push(card);
       }
     });
     
     potentialNewCards.sort((a, b) => parseISO(a.createdAt).getTime() - parseISO(b.createdAt).getTime());
-    dueReviewCards.sort((a,b) => parseISO(a.dueDate).getTime() - parseISO(b.dueDate).getTime());
     
-    const newCardsAllowedToday = Math.max(0, currentDeck.newCardsPerDay - currentDeck.dailyNewCardsIntroduced);
+    potentialReviewCards.sort((a,b) => {
+        const dueDateA = parseISO(a.dueDate);
+        const dueDateB = parseISO(b.dueDate);
+        
+        const aIsDueOrPast = isBefore(dueDateA, addDays(today,1));
+        const bIsDueOrPast = isBefore(dueDateB, addDays(today,1));
+
+        if (aIsDueOrPast && !bIsDueOrPast) return -1;
+        if (!aIsDueOrPast && bIsDueOrPast) return 1;
+
+        const dueDateComparison = dueDateA.getTime() - dueDateB.getTime();
+        if (dueDateComparison !== 0) return dueDateComparison;
+        
+        const easeFactorComparison = (a.easeFactor || DEFAULT_EASE_FACTOR) - (b.easeFactor || DEFAULT_EASE_FACTOR);
+        if (easeFactorComparison !== 0) return easeFactorComparison;
+        
+        return parseISO(a.updatedAt).getTime() - parseISO(b.updatedAt).getTime();
+    });
+
+    const strictlyDueCards = potentialReviewCards.filter(card => {
+        const dueDateObj = parseISO(card.dueDate);
+        return isBefore(dueDateObj, today) || dateFnsIsSameDay(dueDateObj, today);
+    });
+    
+    const newCardsIntroducedToday = currentDeck.dailyNewCardsIntroduced || 0;
+    const newCardsAllowedToday = Math.max(0, (currentDeck.newCardsPerDay || DEFAULT_NEW_CARDS_PER_DAY) - newCardsIntroducedToday);
     const actualNewCards = potentialNewCards.slice(0, newCardsAllowedToday);
     
-    const remainingSessionCapacity = Math.max(0, currentDeck.maxReviewsPerDay - actualNewCards.length);
-    const actualDueCards = dueReviewCards.slice(0, remainingSessionCapacity);
+    let remainingReviewCapacity = Math.max(0, (currentDeck.maxReviewsPerDay || DEFAULT_MAX_REVIEWS_PER_DAY) - actualNewCards.length);
+    
+    let combinedReviewCards = strictlyDueCards.slice(0, remainingReviewCapacity);
+    remainingReviewCapacity -= combinedReviewCards.length;
 
-    return { due: actualDueCards, newCards: actualNewCards };
+    if (remainingReviewCapacity > 0) {
+        const ADAPTIVE_PULL_DAYS_AHEAD = 2; 
+        const ADAPTIVE_PULL_MAX_SOON_CARDS = 3; 
+        const tomorrow = addDays(today, 1);
+        const pullEndDate = addDays(today, ADAPTIVE_PULL_DAYS_AHEAD);
+
+        const upcomingDueCardsPool = potentialReviewCards.filter(card => {
+            if (combinedReviewCards.find(c => c.id === card.id) || actualNewCards.find(c => c.id === card.id)) return false;
+            const dueDateObj = parseISO(card.dueDate);
+            return (dateFnsIsSameDay(dueDateObj, tomorrow) || isAfter(dueDateObj, tomorrow)) && 
+                   (dateFnsIsSameDay(dueDateObj, pullEndDate) || isBefore(dueDateObj, pullEndDate));
+        });
+        
+        const soonCardsToPull = upcomingDueCardsPool.slice(0, Math.min(remainingReviewCapacity, ADAPTIVE_PULL_MAX_SOON_CARDS));
+        combinedReviewCards.push(...soonCardsToPull);
+    }
+
+    return { due: combinedReviewCards, newCards: actualNewCards };
+
   }, [cards, decks]); 
 
 
@@ -565,7 +608,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     addCardToDeck, updateCard, deleteCard, reviewCard, resetDeckProgress,
     suspendCard, unsuspendCard, buryCardUntilTomorrow, 
     setCurrentView, setSelectedDeckId, updateUserSettings, setTestConfig, setCustomStudyParams,
-    getDeckById, getCardsByDeckId, getDueCardsForDeck 
+    getDeckById, getCardsByDeckId, getDueCardsForDeck // Ensure all memoized functions are listed if they are part of the context
   ]);
 
   return <AppContext.Provider value={contextValue}>{children}</AppContext.Provider>;
@@ -578,9 +621,3 @@ export const useApp = () => {
   }
   return context;
 };
-
-const isSameDay = (date1: Date, date2: Date): boolean => {
-    return date1.getFullYear() === date2.getFullYear() &&
-           date1.getMonth() === date2.getMonth() &&
-           date1.getDate() === date2.getDate();
-}
