@@ -33,8 +33,8 @@ export default function HelpDialog({ isOpen, onOpenChange }: HelpDialogProps) {
       titleKey: 'helpGettingStartedTitle',
       content: (
         <>
-          <p className="mb-2">{t('helpGettingStartedP1')}</p>
-          <p>{t('helpGettingStartedP2')}</p>
+          <p className="mb-2" dangerouslySetInnerHTML={{ __html: t('helpGettingStartedP1') }}></p>
+          <p dangerouslySetInnerHTML={{ __html: t('helpGettingStartedP2') }}></p>
         </>
       ),
     },
@@ -42,14 +42,14 @@ export default function HelpDialog({ isOpen, onOpenChange }: HelpDialogProps) {
       titleKey: 'helpDeckManagementTitle',
       content: (
         <>
-          <h4 className="font-semibold mt-3 mb-1">{t('helpDeckManagementCreatingTitle')}</h4>
-          <p className="mb-2">{t('helpDeckManagementCreatingP1')}</p>
-          <h4 className="font-semibold mt-3 mb-1">{t('helpDeckManagementImportingTitle')}</h4>
+          <h4 className="font-semibold mt-3 mb-1" dangerouslySetInnerHTML={{ __html: t('helpDeckManagementCreatingTitle') }}></h4>
+          <p className="mb-2" dangerouslySetInnerHTML={{ __html: t('helpDeckManagementCreatingP1') }}></p>
+          <h4 className="font-semibold mt-3 mb-1" dangerouslySetInnerHTML={{ __html: t('helpDeckManagementImportingTitle') }}></h4>
           <p className="mb-2" dangerouslySetInnerHTML={{ __html: t('helpDeckManagementImportingP1') }}></p>
-          <h4 className="font-semibold mt-3 mb-1">{t('helpDeckManagementExportingTitle')}</h4>
-          <p className="mb-2">{t('helpDeckManagementExportingP1')}</p>
-          <h4 className="font-semibold mt-3 mb-1">{t('helpDeckManagementRenamingDeletingTitle')}</h4>
-          <p className="mb-2">{t('helpDeckManagementRenamingDeletingP1')}</p>
+          <h4 className="font-semibold mt-3 mb-1" dangerouslySetInnerHTML={{ __html: t('helpDeckManagementExportingTitle') }}></h4>
+          <p className="mb-2" dangerouslySetInnerHTML={{ __html: t('helpDeckManagementExportingP1') }}></p>
+          <h4 className="font-semibold mt-3 mb-1" dangerouslySetInnerHTML={{ __html: t('helpDeckManagementRenamingDeletingTitle') }}></h4>
+          <p className="mb-2" dangerouslySetInnerHTML={{ __html: t('helpDeckManagementRenamingDeletingP1') }}></p>
         </>
       ),
     },
@@ -57,13 +57,13 @@ export default function HelpDialog({ isOpen, onOpenChange }: HelpDialogProps) {
       titleKey: 'helpStudyingCardsTitle',
       content: (
         <>
-          <h4 className="font-semibold mt-3 mb-1">{t('helpStudyingCardsStudyScreenTitle')}</h4>
-          <p className="mb-2">{t('helpStudyingCardsStudyScreenP1')}</p>
-          <h4 className="font-semibold mt-3 mb-1">{t('helpStudyingCardsFlippingGradingTitle')}</h4>
+          <h4 className="font-semibold mt-3 mb-1" dangerouslySetInnerHTML={{ __html: t('helpStudyingCardsStudyScreenTitle') }}></h4>
+          <p className="mb-2" dangerouslySetInnerHTML={{ __html: t('helpStudyingCardsStudyScreenP1') }}></p>
+          <h4 className="font-semibold mt-3 mb-1" dangerouslySetInnerHTML={{ __html: t('helpStudyingCardsFlippingGradingTitle') }}></h4>
           <p className="mb-2" dangerouslySetInnerHTML={{ __html: t('helpStudyingCardsFlippingGradingP1') }}></p>
-          <h4 className="font-semibold mt-3 mb-1">{t('helpStudyingCardsSRSTitle')}</h4>
-          <p className="mb-2">{t('helpStudyingCardsSRSP1')}</p>
-          <h4 className="font-semibold mt-3 mb-1">{t('helpStudyingCardsSettingsTitle')}</h4>
+          <h4 className="font-semibold mt-3 mb-1" dangerouslySetInnerHTML={{ __html: t('helpStudyingCardsSRSTitle') }}></h4>
+          <p className="mb-2" dangerouslySetInnerHTML={{ __html: t('helpStudyingCardsSRSP1') }}></p>
+          <h4 className="font-semibold mt-3 mb-1" dangerouslySetInnerHTML={{ __html: t('helpStudyingCardsSettingsTitle') }}></h4>
           <ul className="list-disc pl-5 mb-2 space-y-1">
             <li dangerouslySetInnerHTML={{ __html: t('helpStudyingCardsSettingsSwap') }}></li>
             <li dangerouslySetInnerHTML={{ __html: t('helpStudyingCardsSettingsShuffle') }}></li>
@@ -79,7 +79,7 @@ export default function HelpDialog({ isOpen, onOpenChange }: HelpDialogProps) {
       titleKey: 'helpManagingCardsTitle',
       content: (
         <>
-          <p className="mb-2">{t('helpManagingCardsP1')}</p>
+          <p className="mb-2" dangerouslySetInnerHTML={{ __html: t('helpManagingCardsP1') }}></p>
           <ul className="list-disc pl-5 space-y-1">
             <li dangerouslySetInnerHTML={{ __html: t('helpManagingCardsAddNew') }}></li>
             <li dangerouslySetInnerHTML={{ __html: t('helpManagingCardsEditExisting') }}></li>
@@ -93,8 +93,8 @@ export default function HelpDialog({ isOpen, onOpenChange }: HelpDialogProps) {
       titleKey: 'helpTestModeTitle',
       content: (
         <>
-          <p className="mb-2">{t('helpTestModeIntro')}</p>
-          <h4 className="font-semibold mt-3 mb-1">{t('helpTestModeConfigurationTitle')}</h4>
+          <p className="mb-2" dangerouslySetInnerHTML={{ __html: t('helpTestModeIntro') }}></p>
+          <h4 className="font-semibold mt-3 mb-1" dangerouslySetInnerHTML={{ __html: t('helpTestModeConfigurationTitle') }}></h4>
           <ul className="list-disc pl-5 mb-2 space-y-1">
             <li dangerouslySetInnerHTML={{ __html: t('helpTestModeConfigQuestionField')}}></li>
             <li dangerouslySetInnerHTML={{ __html: t('helpTestModeConfigAnswerField')}}></li>
@@ -102,12 +102,12 @@ export default function HelpDialog({ isOpen, onOpenChange }: HelpDialogProps) {
             <li dangerouslySetInnerHTML={{ __html: t('helpTestModeConfigTestSize')}}></li>
             <li dangerouslySetInnerHTML={{ __html: t('helpTestModeConfigHintToggle')}}></li>
           </ul>
-           <h4 className="font-semibold mt-3 mb-1">{t('helpTestModeAnsweringTitle')}</h4>
+           <h4 className="font-semibold mt-3 mb-1" dangerouslySetInnerHTML={{ __html: t('helpTestModeAnsweringTitle') }}></h4>
            <ul className="list-disc pl-5 mb-2 space-y-1">
             <li dangerouslySetInnerHTML={{ __html: t('helpTestModeAnsweringMultipleChoice')}}></li>
             <li dangerouslySetInnerHTML={{ __html: t('helpTestModeAnsweringTypedInput')}}></li>
           </ul>
-          <h4 className="font-semibold mt-3 mb-1">{t('helpTestModeMasteryTitle')}</h4>
+          <h4 className="font-semibold mt-3 mb-1" dangerouslySetInnerHTML={{ __html: t('helpTestModeMasteryTitle') }}></h4>
           <p className="mb-2" dangerouslySetInnerHTML={{ __html: t('helpTestModeMasteryP1')}}></p>
         </>
       ),
@@ -116,15 +116,15 @@ export default function HelpDialog({ isOpen, onOpenChange }: HelpDialogProps) {
       titleKey: 'helpCustomStudyTitle',
       content: (
         <>
-          <p className="mb-2">{t('helpCustomStudyP1')}</p>
-          <h4 className="font-semibold mt-3 mb-1">{t('helpCustomStudyAccess')}</h4>
-          <p className="mb-2">{t('helpCustomStudyDialogTitle')}</p>
+          <p className="mb-2" dangerouslySetInnerHTML={{ __html: t('helpCustomStudyP1') }}></p>
+          <h4 className="font-semibold mt-3 mb-1" dangerouslySetInnerHTML={{ __html: t('helpCustomStudyAccess') }}></h4>
+          <p className="mb-2" dangerouslySetInnerHTML={{ __html: t('helpCustomStudyDialogTitle') }}></p>
           <ul className="list-disc pl-5 mb-2 space-y-1">
             <li dangerouslySetInnerHTML={{ __html: t('helpCustomStudyDialogTags')}}></li>
             <li dangerouslySetInnerHTML={{ __html: t('helpCustomStudyDialogLimit')}}></li>
           </ul>
-          <p className="mb-2">{t('helpCustomStudyDialogStart')}</p>
-          <p className="mb-2">{t('helpCustomStudyIndicator')}</p>
+          <p className="mb-2" dangerouslySetInnerHTML={{ __html: t('helpCustomStudyDialogStart') }}></p>
+          <p className="mb-2" dangerouslySetInnerHTML={{ __html: t('helpCustomStudyIndicator') }}></p>
         </>
       ),
     },
@@ -132,7 +132,7 @@ export default function HelpDialog({ isOpen, onOpenChange }: HelpDialogProps) {
       titleKey: 'helpStatisticsTitle',
       content: (
         <>
-          <p className="mb-2">{t('helpStatisticsP1')}</p>
+          <p className="mb-2" dangerouslySetInnerHTML={{ __html: t('helpStatisticsP1') }}></p>
           <ul className="list-disc pl-5 space-y-1">
             <li>{t('helpStatisticsTotalDecksCards')}</li>
             <li>{t('helpStatisticsStreaks')}</li>
@@ -146,16 +146,16 @@ export default function HelpDialog({ isOpen, onOpenChange }: HelpDialogProps) {
       titleKey: 'helpLeechesTitle',
       content: (
         <>
-          <p className="mb-2">{t('helpLeechesP1')}</p>
-          <h4 className="font-semibold mt-3 mb-1">{t('helpLeechesDetectionTitle')}</h4>
+          <p className="mb-2" dangerouslySetInnerHTML={{ __html: t('helpLeechesP1') }}></p>
+          <h4 className="font-semibold mt-3 mb-1" dangerouslySetInnerHTML={{ __html: t('helpLeechesDetectionTitle') }}></h4>
           <p className="mb-2" dangerouslySetInnerHTML={{ __html: t('helpLeechesDetectionP1') }}></p>
-          <h4 className="font-semibold mt-3 mb-1">{t('helpLeechesActionsTitle')}</h4>
+          <h4 className="font-semibold mt-3 mb-1" dangerouslySetInnerHTML={{ __html: t('helpLeechesActionsTitle') }}></h4>
           <ul className="list-disc pl-5 space-y-1">
             <li dangerouslySetInnerHTML={{ __html: t('helpLeechesActionSuspended') }}></li>
             <li dangerouslySetInnerHTML={{ __html: t('helpLeechesActionNotification') }}></li>
             <li dangerouslySetInnerHTML={{ __html: t('helpLeechesActionIndicator') }}></li>
           </ul>
-          <p className="mt-2">{t('helpLeechesP3')}</p>
+          <p className="mt-2" dangerouslySetInnerHTML={{ __html: t('helpLeechesP3') }}></p>
         </>
       ),
     },
@@ -163,7 +163,7 @@ export default function HelpDialog({ isOpen, onOpenChange }: HelpDialogProps) {
       titleKey: 'helpAppSettingsTitle',
       content: (
         <>
-          <p className="mb-2">{t('helpAppSettingsP1')}</p>
+          <p className="mb-2" dangerouslySetInnerHTML={{ __html: t('helpAppSettingsP1') }}></p>
           <ul className="list-disc pl-5 space-y-1">
             <li dangerouslySetInnerHTML={{ __html: t('helpAppSettingsTheme') }}></li>
             <li dangerouslySetInnerHTML={{ __html: t('helpAppSettingsLanguage') }}></li>
@@ -204,3 +204,4 @@ export default function HelpDialog({ isOpen, onOpenChange }: HelpDialogProps) {
     </Dialog>
   );
 }
+
