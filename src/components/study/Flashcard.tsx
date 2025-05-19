@@ -24,7 +24,7 @@ export default function Flashcard({ card, isFlipped, onFlip, showAnswerButton = 
 
   return (
     <div 
-      className={`flashcard-container w-full max-w-lg min-h-[20rem] h-auto rounded-lg cursor-pointer ${isFlipped ? 'flipped' : ''}`} 
+      className={`flashcard-container w-full max-w-lg min-h-[7rem] h-auto rounded-lg cursor-pointer ${isFlipped ? 'flipped' : ''}`} 
       onClick={onFlip}
     >
       <div className="flashcard-inner">
@@ -51,3 +51,4 @@ export default function Flashcard({ card, isFlipped, onFlip, showAnswerButton = 
     </div>
   );
 }
+
