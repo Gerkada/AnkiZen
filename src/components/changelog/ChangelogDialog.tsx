@@ -21,7 +21,7 @@ interface ChangelogDialogProps {
 
 interface ChangelogEntry {
   version: string;
-  date: string;
+  // date: string; // Removed date
   changes: string[]; // Array of translation keys for changes
 }
 
@@ -32,7 +32,7 @@ export default function ChangelogDialog({ isOpen, onOpenChange }: ChangelogDialo
   const changelogData: ChangelogEntry[] = [
     {
       version: t('changelogVersionCurrent'), // "1.2.0" (example)
-      date: t('changelogDateCurrent'), // "September 2024" (example)
+      // date: t('changelogDateCurrent'), // Removed date
       changes: [
         'changelog_1_2_0_helpUpdate',
         'changelog_1_2_0_changelogFeature',
@@ -45,7 +45,7 @@ export default function ChangelogDialog({ isOpen, onOpenChange }: ChangelogDialo
     },
     {
       version: t('changelogVersion_1_1_0'),
-      date: t('changelogDate_1_1_0'),
+      // date: t('changelogDate_1_1_0'), // Removed date
       changes: [
         'changelog_1_1_0_suspendCards',
         'changelog_1_1_0_advancedSrsSettings',
@@ -57,7 +57,7 @@ export default function ChangelogDialog({ isOpen, onOpenChange }: ChangelogDialo
     },
     {
       version: t('changelogVersion_1_0_0'),
-      date: t('changelogDate_1_0_0'),
+      // date: t('changelogDate_1_0_0'), // Removed date
       changes: [
         'changelog_1_0_0_initialRelease',
         'changelog_1_0_0_deckManagement',
@@ -86,7 +86,7 @@ export default function ChangelogDialog({ isOpen, onOpenChange }: ChangelogDialo
           <div className="space-y-6">
             {changelogData.map((entry, index) => (
               <div key={index}>
-                <h3 className="font-semibold text-lg mb-1">{entry.version} <span className="text-sm text-muted-foreground font-normal">- {entry.date}</span></h3>
+                <h3 className="font-semibold text-lg mb-1">{entry.version}</h3>
                 <ul className="list-disc pl-5 space-y-1 text-sm text-muted-foreground">
                   {entry.changes.map((changeKey, cIndex) => (
                     <li key={cIndex} dangerouslySetInnerHTML={{ __html: t(changeKey) }}></li>
