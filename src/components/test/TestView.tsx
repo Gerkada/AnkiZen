@@ -32,7 +32,8 @@ export default function TestView() {
     setCurrentView,
     testConfig,
     setTestConfig,
-    markDeckAsLearned
+    markDeckAsLearned,
+    isLoading: isAppContextLoading // Get loading state from AppContext
   } = appContext;
   const { t } = useLanguage();
   const { toast } = useToast();
@@ -125,8 +126,23 @@ export default function TestView() {
   // Update currentTestQueue based on testableCards and testSizeOption
   // This effect also handles "not enough cards" scenarios
   useEffect(() => {
+    // Guard: If AppContext is still loading its data, or if rawDeckCards for the selected deck
+    // haven't been populated yet, return early to prevent premature error states.
+    if (isAppContextLoading || (selectedDeckId && rawDeckCards.length === 0 && !isMasteryRun)) {
+      setCurrentTestQueue([]); // Ensure queue is empty during this intermediate state
+      setNotEnoughCardsMessage(null); // Clear any previous message
+      setIsTestOver(false); // Ensure test isn't prematurely marked over
+      return;
+    }
+
     if (testableCards.length < MIN_CARDS_FOR_TEST_OPTIONS) {
-      setNotEnoughCardsMessage(t('notEnoughCardsForTestOptions', { minCount: MIN_CARDS_FOR_TEST_OPTIONS }));
+      // This condition now implies rawDeckCards are loaded (or AppContext loading is finished),
+      // but there are not enough *testable* cards for options.
+      if (rawDeckCards.length > 0 || (rawDeckCards.length === 0 && !isAppContextLoading)) {
+        // Show "not enough cards for options" if there are some raw cards but not enough testable ones,
+        // OR if the deck is genuinely empty (rawDeckCards is 0 and context is not loading).
+        setNotEnoughCardsMessage(t('notEnoughCardsForTestOptions', { minCount: MIN_CARDS_FOR_TEST_OPTIONS }));
+      }
       setIsTestOver(true);
       setQuestionCard(null);
       setOptions([]);
@@ -155,18 +171,17 @@ export default function TestView() {
       setAskedCardIds(new Set());
       setCorrectCount(0);
       setIncorrectCount(0);
-      setQuestionCard(null); // This will trigger loadNextQuestion if queue is ready
+      setQuestionCard(null); 
       setFeedback(null);
       setIsAnswered(false);
       if(isMasteryRun) setMasteryTestAllCorrect(true);
-    } else if (queue.length === 0 && rawDeckCards.length > 0) { // No cards for this specific size/filter
+    } else if (queue.length === 0 && rawDeckCards.length > 0) { 
         setNotEnoughCardsMessage(t('noCardsMatchTestSettings'));
         setIsTestOver(true);
         setQuestionCard(null);
         setOptions([]);
     }
-
-  }, [testableCards, testSizeOption, isMasteryRun, t, rawDeckCards.length]);
+  }, [testableCards, testSizeOption, isMasteryRun, t, rawDeckCards.length, selectedDeckId, isAppContextLoading]);
 
 
   const loadNextQuestion = useCallback(() => {
@@ -193,7 +208,7 @@ export default function TestView() {
     const correctAnswerText = randomQuestionCard[answerField!]; // answerField is guaranteed by filter
     const correctAnswerOpt: TestOption = { cardId: randomQuestionCard.id, text: correctAnswerText, isCorrect: true };
 
-    const incorrectOptionsPool = testableCards // Use all testable cards for incorrect options pool
+    const incorrectOptionsPool = testableCards 
         .filter(card => card.id !== randomQuestionCard.id && card[answerField!] && card[answerField!].trim() !== '')
         .map(card => card[answerField!])
         .filter((text, index, self) => text !== correctAnswerText && self.indexOf(text) === index); 
@@ -245,7 +260,7 @@ export default function TestView() {
     }, 1500); 
   };
   
-  const handleTestConfigChange = () => { // For Q/A type or test size changes
+  const handleTestConfigChange = () => { 
     setAskedCardIds(new Set());
     setCorrectCount(0);
     setIncorrectCount(0);
@@ -255,7 +270,6 @@ export default function TestView() {
     setFeedback(null);
     setIsAnswered(false);
     if (isMasteryRun) setMasteryTestAllCorrect(true); 
-    // currentTestQueue will be rebuilt by its useEffect, which then might trigger loadNextQuestion
   };
 
   const getHintText = (): string | null => {
@@ -276,13 +290,14 @@ export default function TestView() {
     if (testableCards.length >= 20) sizes.push({value: '20', label: t('testSizeSpecific', {count: 20})});
     if (testableCards.length >= 50) sizes.push({value: '50', label: t('testSizeSpecific', {count: 50})});
     sizes.push({value: 'all', label: t('testSizeAll')});
-    // Ensure current testSizeOption is valid, or default to 'all' or smallest
+    
     if (!sizes.find(s => s.value === testSizeOption) && sizes.length > 0) {
-        setTestSizeOption(sizes.find(s => s.value === 'all')?.value || sizes[0].value);
-    } else if (sizes.length === 0 && testableCards.length > 0 && testableCards.length < MIN_CARDS_FOR_TEST_OPTIONS ) {
-         //This case is handled by notEnoughCardsMessage for options
-    } else if (sizes.length === 0 && testableCards.length > 0){
-        //This should not happen if 'all' is always an option when testableCards > 0
+        const newSize = sizes.find(s => s.value === 'all')?.value || sizes[0].value;
+        if (testSizeOption !== newSize) { // Only set if different to avoid potential loops
+             // This might cause a re-render if testSizeOption changes.
+             // Ensure this doesn't create an infinite loop with other effects.
+             // It's generally safer to handle such defaulting higher up or on initial load.
+        }
     }
     return sizes;
   }, [testableCards.length, t, testSizeOption]);
@@ -293,7 +308,6 @@ export default function TestView() {
     if (isTestOver && isMasteryRun && deck && selectedDeckId) {
       if (masteryTestAllCorrect && incorrectCount === 0 && askedCardIds.size === currentTestQueue.length && currentTestQueue.length > 0) {
         markDeckAsLearned(selectedDeckId);
-        // Toast is handled by markDeckAsLearned
       } else if (askedCardIds.size === currentTestQueue.length && currentTestQueue.length > 0) {
          toast({ title: t('masteryTestCompleteTitle'), description: t('masteryTestFailed'), variant: "destructive" });
       }
@@ -327,7 +341,7 @@ export default function TestView() {
     );
   }
   
-  if (isTestOver && !notEnoughCardsMessage) { // Test finished normally
+  if (isTestOver && !notEnoughCardsMessage) { 
      return (
       <div className="flex flex-col items-center justify-center p-4 md:p-6 space-y-6">
         <Card className="w-full max-w-md">
@@ -370,6 +384,27 @@ export default function TestView() {
       </div>
     );
   }
+
+  // Show loading indicator if AppContext is loading and we don't have a question card yet.
+  if (isAppContextLoading && !questionCard && !isTestOver) {
+    return (
+      <div className="flex flex-col items-center p-4 md:p-6 space-y-6">
+        <div className="w-full max-w-2xl mb-2 flex justify-between items-center">
+          <Button variant="outline" onClick={() => setCurrentView('deck-list')} disabled>
+            <ArrowLeft className="mr-2 h-4 w-4" /> {t('decks')}
+          </Button>
+          <h2 className="text-2xl font-semibold">
+            {isMasteryRun ? t('masteryChallengeTitle') : t('testMode')} - {deck.name}
+          </h2>
+          <Button variant="outline" size="icon" onClick={() => setAllowHints(prev => !prev)} title={t(allowHints ? 'testToggleHintsOff' : 'testToggleHintsOn')} disabled>
+            {allowHints ? <Lightbulb className="h-5 w-5" /> : <LightbulbOff className="h-5 w-5" />}
+          </Button>
+        </div>
+        <p>{t('loadingTest')}</p>
+      </div>
+    );
+  }
+
 
   return (
     <div className="flex flex-col items-center p-4 md:p-6 space-y-6">
@@ -465,8 +500,9 @@ export default function TestView() {
           </CardFooter>
         </Card>
       ) : (
-         testableCards.length >= MIN_CARDS_FOR_TEST_OPTIONS && !isTestOver && <p>{t('loadingTest')}</p>
+         testableCards.length >= MIN_CARDS_FOR_TEST_OPTIONS && !isTestOver && !notEnoughCardsMessage && <p>{t('loadingTest')}</p>
       )}
     </div>
   );
 }
+
