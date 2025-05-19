@@ -3,7 +3,7 @@
 
 import type { ReactNode } from 'react';
 import { createContext, useContext, useState, useCallback, useEffect, useMemo } from 'react';
-import type { Deck, Card, UserSettings, AppView, SRSGrade, ReviewLog, TestConfig, CustomStudyParams } from '@/types';
+import type { Deck, Card, UserSettings, AppView, SRSGrade, ReviewLog, TestConfig, CustomStudyParams, MergeDecksResult } from '@/types';
 import useLocalStorage from '@/hooks/useLocalStorage';
 import { calculateNextReview, createNewCard, type SRSCustomIntervals, DEFAULT_EASE_FACTOR } from '@/lib/srs';
 import { 
@@ -61,6 +61,7 @@ interface AppContextState {
   deleteDeck: (deckId: string) => void;
   importCardsToDeck: (deckId: string, parsedCardsData: ParsedCardData[]) => ImportResult;
   markDeckAsLearned: (deckId: string) => void;
+  mergeDecks: (sourceDeckIds: string[], targetDeckId: string) => Promise<MergeDecksResult>;
   
   // Card Actions
   addCardToDeck: (deckId: string, front: string, reading: string, translation: string) => Card;
@@ -201,7 +202,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             newCardProps.tags = [];
             cardNeedsUpdate = true;
         }
-        if (typeof card.notes === 'undefined') { // Added for Card Notes
+        if (typeof card.notes === 'undefined') {
             newCardProps.notes = '';
             cardNeedsUpdate = true;
         }
@@ -438,7 +439,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           isSuspended: false,
           buriedUntil: null,
           tags: newTags,
-          notes: c.notes || '', // Ensure notes are preserved or initialized
+          notes: c.notes || '',
           updatedAt: now,
         };
       }
@@ -479,7 +480,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const now = formatISO(new Date());
     const learnedInterval = 90; 
     const dueDate = formatISO(addDays(startOfDay(new Date()), learnedInterval));
-    const deck = decks.find(d => d.id === deckId); 
+    const deck = getDeckById(deckId); 
 
     setCards(prevCards => 
       prevCards.map(card => {
@@ -506,13 +507,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if(deck){
       toast({ title: t('successTitle'), description: t('deckMarkedLearned', { deckName: deck.name }) });
     }
-  }, [setCards, decks, toast, t]); 
+  }, [setCards, getDeckById, toast, t]); 
 
 
   const getCardsByDeckId = useCallback((deckId: string) => cards.filter(c => c.deckId === deckId), [cards]);
 
   const getDueCardsForDeck = useCallback((deckId: string) => {
-    const currentDeck = decks.find(d => d.id === deckId); 
+    const currentDeck = getDeckById(deckId); 
     if (!currentDeck) return { due: [], newCards: [] };
 
     const today = startOfDay(new Date());
@@ -593,19 +594,79 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     return { due: combinedReviewCards, newCards: actualNewCards };
 
-  }, [cards, decks]); 
+  }, [cards, decks, getDeckById, getCardsByDeckId]); 
+
+  const mergeDecks = useCallback(async (sourceDeckIds: string[], targetDeckId: string): Promise<MergeDecksResult> => {
+    const targetDeck = getDeckById(targetDeckId);
+    if (!targetDeck) {
+      throw new Error("Target deck not found");
+    }
+
+    const now = formatISO(new Date());
+    let mergedCardsCount = 0;
+    let skippedDuplicatesCount = 0;
+    const deletedDeckNames: string[] = [];
+
+    const targetDeckCards = cards.filter(c => c.deckId === targetDeckId);
+    const targetDeckFronts = new Set(targetDeckCards.map(c => c.front.toLowerCase()));
+
+    const cardsToUpdate: Card[] = [];
+    const logsToUpdate: ReviewLog[] = [];
+    const sourceCardIdsProcessed = new Set<string>();
+
+    for (const sourceDeckId of sourceDeckIds) {
+      const sourceDeck = getDeckById(sourceDeckId);
+      if (sourceDeck) {
+        deletedDeckNames.push(sourceDeck.name);
+        const sourceCardsInThisDeck = cards.filter(c => c.deckId === sourceDeckId);
+        
+        for (const sourceCard of sourceCardsInThisDeck) {
+          sourceCardIdsProcessed.add(sourceCard.id);
+          if (targetDeckFronts.has(sourceCard.front.toLowerCase())) {
+            skippedDuplicatesCount++;
+          } else {
+            cardsToUpdate.push({ ...sourceCard, deckId: targetDeckId, updatedAt: now });
+            targetDeckFronts.add(sourceCard.front.toLowerCase()); // Add to target set to avoid intra-merge duplicates
+            mergedCardsCount++;
+            
+            const cardLogs = reviewLogs.filter(log => log.cardId === sourceCard.id);
+            cardLogs.forEach(log => logsToUpdate.push({ ...log, deckId: targetDeckId }));
+          }
+        }
+      }
+    }
+    
+    setCards(prevCards => {
+      const remainingCards = prevCards.filter(card => !sourceCardIdsProcessed.has(card.id) || card.deckId === targetDeckId);
+      return [...remainingCards, ...cardsToUpdate];
+    });
+
+    setReviewLogs(prevLogs => {
+      const originalLogIdsToUpdate = new Set(logsToUpdate.map(l => l.id));
+      const remainingLogs = prevLogs.filter(log => !originalLogIdsToUpdate.has(log.id));
+      return [...remainingLogs, ...logsToUpdate];
+    });
+    
+    updateDeck(targetDeckId, { updatedAt: now });
+
+    sourceDeckIds.forEach(id => {
+      deleteDeck(id); // This will also handle selectedDeckId if it's a source
+    });
+
+    return { mergedCardsCount, skippedDuplicatesCount, deletedDeckNames, targetDeckName: targetDeck.name };
+  }, [cards, reviewLogs, decks, getDeckById, updateDeck, deleteDeck, setCards, setReviewLogs]);
 
 
   const contextValue = useMemo(() => ({
     decks, cards, userSettings, reviewLogs, currentView, selectedDeckId, isLoading, testConfig, customStudyParams,
-    addDeck, renameDeck, updateDeck, deleteDeck, importCardsToDeck, markDeckAsLearned,
+    addDeck, renameDeck, updateDeck, deleteDeck, importCardsToDeck, markDeckAsLearned, mergeDecks,
     addCardToDeck, updateCard, deleteCard, reviewCard, resetDeckProgress,
     suspendCard, unsuspendCard, buryCardUntilTomorrow,
     setCurrentView, setSelectedDeckId, updateUserSettings, setTestConfig, setCustomStudyParams,
     getDeckById, getCardsByDeckId, getDueCardsForDeck
   }), [
     decks, cards, userSettings, reviewLogs, currentView, selectedDeckId, isLoading, testConfig, customStudyParams,
-    addDeck, renameDeck, updateDeck, deleteDeck, importCardsToDeck, markDeckAsLearned,
+    addDeck, renameDeck, updateDeck, deleteDeck, importCardsToDeck, markDeckAsLearned, mergeDecks,
     addCardToDeck, updateCard, deleteCard, reviewCard, resetDeckProgress,
     suspendCard, unsuspendCard, buryCardUntilTomorrow, 
     setCurrentView, setSelectedDeckId, updateUserSettings, setTestConfig, setCustomStudyParams,

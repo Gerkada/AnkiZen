@@ -54,6 +54,17 @@ export default function HelpDialog({ isOpen, onOpenChange }: HelpDialogProps) {
       ),
     },
     {
+      titleKey: 'helpMergeDecksTitle',
+      content: (
+        <>
+          <p className="mb-2" dangerouslySetInnerHTML={{ __html: t('helpMergeDecksAccess') }}></p>
+          <p className="mb-2" dangerouslySetInnerHTML={{ __html: t('helpMergeDecksDialog') }}></p>
+          <p className="mb-2" dangerouslySetInnerHTML={{ __html: t('helpMergeDecksLogic') }}></p>
+          <p className="mb-2" dangerouslySetInnerHTML={{ __html: t('helpMergeDecksUsecase') }}></p>
+        </>
+      )
+    },
+    {
       titleKey: 'helpStudyingCardsTitle',
       content: (
         <>

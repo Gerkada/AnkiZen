@@ -33,6 +33,7 @@ export default function ChangelogDialog({ isOpen, onOpenChange }: ChangelogDialo
       changes: [
         'changelog_1_3_0_cardFiltersEditView',
         'changelog_1_3_0_cardNotes',
+        'changelog_1_3_0_mergeDecks',
       ],
     },
     {

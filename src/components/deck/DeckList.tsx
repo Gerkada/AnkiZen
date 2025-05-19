@@ -3,18 +3,20 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input'; // Added Input import
-import { PlusCircle } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { PlusCircle, Merge } from 'lucide-react'; // Added Merge import
 import { useApp } from '@/contexts/AppContext';
 import { useLanguage } from '@/contexts/LanguageProvider';
 import CreateDeckDialog from './CreateDeckDialog';
+import MergeDecksDialog from './MergeDecksDialog'; // Added MergeDecksDialog import
 import DeckItem from './DeckItem';
 
 export default function DeckList() {
   const { decks, getCardsByDeckId } = useApp();
   const { t } = useLanguage();
   const [isCreateDeckOpen, setIsCreateDeckOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState(''); // Added state for search term
+  const [isMergeDecksOpen, setIsMergeDecksOpen] = useState(false); // State for merge dialog
+  const [searchTerm, setSearchTerm] = useState('');
 
   const filteredDecks = decks.filter(deck =>
     deck.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -33,6 +35,15 @@ export default function DeckList() {
             className="flex-grow sm:flex-grow-0 sm:w-64"
             aria-label={t('searchDecksPlaceholder')}
           />
+          <Button 
+            onClick={() => setIsMergeDecksOpen(true)} 
+            variant="outline" 
+            className="shrink-0"
+            disabled={decks.length < 2}
+            title={decks.length < 2 ? t('mergeDecksDisabledTooltip') : t('mergeDecks')}
+          >
+            <Merge className="mr-2 h-4 w-4" /> {t('mergeDecks')}
+          </Button>
           <Button onClick={() => setIsCreateDeckOpen(true)} className="shrink-0">
             <PlusCircle className="mr-2 h-4 w-4" /> {t('newDeck')}
           </Button>
@@ -52,6 +63,9 @@ export default function DeckList() {
       )}
 
       <CreateDeckDialog isOpen={isCreateDeckOpen} onOpenChange={setIsCreateDeckOpen} />
+      {decks.length >= 2 && (
+        <MergeDecksDialog isOpen={isMergeDecksOpen} onOpenChange={setIsMergeDecksOpen} />
+      )}
     </div>
   );
 }

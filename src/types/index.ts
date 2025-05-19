@@ -77,3 +77,11 @@ export interface CustomStudyParams {
   limit: number;
   mode: 'study' | 'test';
 }
+
+// Merge Decks specific types
+export interface MergeDecksResult {
+  mergedCardsCount: number;
+  skippedDuplicatesCount: number;
+  deletedDeckNames: string[];
+  targetDeckName: string;
+}
