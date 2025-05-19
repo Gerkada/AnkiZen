@@ -89,8 +89,16 @@ export default function HelpDialog({ isOpen, onOpenChange }: HelpDialogProps) {
       titleKey: 'helpTestModeTitle',
       content: (
         <>
-          <p className="mb-2">{t('helpTestModeP1')}</p>
-          <p className="mb-2">{t('helpTestModeP2')}</p>
+          <p className="mb-2">{t('helpTestModeIntro')}</p>
+          <h4 className="font-semibold mt-3 mb-1">{t('helpTestModeConfigurationTitle')}</h4>
+          <ul className="list-disc pl-5 mb-2 space-y-1">
+            <li dangerouslySetInnerHTML={{ __html: t('helpTestModeConfigQuestionField')}}></li>
+            <li dangerouslySetInnerHTML={{ __html: t('helpTestModeConfigAnswerField')}}></li>
+            <li dangerouslySetInnerHTML={{ __html: t('helpTestModeConfigTestSize')}}></li>
+            <li dangerouslySetInnerHTML={{ __html: t('helpTestModeConfigHintToggle')}}></li>
+          </ul>
+          <h4 className="font-semibold mt-3 mb-1">{t('helpTestModeMasteryTitle')}</h4>
+          <p className="mb-2" dangerouslySetInnerHTML={{ __html: t('helpTestModeMasteryP1')}}></p>
         </>
       ),
     },
@@ -113,11 +121,13 @@ export default function HelpDialog({ isOpen, onOpenChange }: HelpDialogProps) {
       content: (
         <>
           <p className="mb-2">{t('helpLeechesP1')}</p>
-          <p className="mb-2">{t('helpLeechesP2')}</p>
+          <h4 className="font-semibold mt-3 mb-1">{t('helpLeechesDetectionTitle')}</h4>
+          <p className="mb-2">{t('helpLeechesDetectionP1')}</p>
+          <h4 className="font-semibold mt-3 mb-1">{t('helpLeechesActionsTitle')}</h4>
           <ul className="list-disc pl-5 space-y-1">
-            <li>{t('helpLeechesSuspended')}</li>
-            <li>{t('helpLeechesNotification')}</li>
-            <li>{t('helpLeechesEditView')}</li>
+            <li>{t('helpLeechesActionSuspended')}</li>
+            <li>{t('helpLeechesActionNotification')}</li>
+            <li>{t('helpLeechesActionIndicator')}</li>
           </ul>
           <p className="mt-2">{t('helpLeechesP3')}</p>
         </>
@@ -168,3 +178,4 @@ export default function HelpDialog({ isOpen, onOpenChange }: HelpDialogProps) {
     </Dialog>
   );
 }
+

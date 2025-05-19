@@ -53,7 +53,7 @@ export default function TestView() {
 
   const [questionField, setQuestionField] = useState<TestField>('front');
   const [answerField, setAnswerField] = useState<TestField>('translation');
-  const [allowHints, setAllowHints] = useState(true);
+  const [allowHints, setAllowHints] = useState(false); // Hint disabled by default
   const [notEnoughCardsMessage, setNotEnoughCardsMessage] = useState<string | null>(null);
   
   const [isMasteryRun, setIsMasteryRun] = useState(false);
@@ -293,7 +293,7 @@ export default function TestView() {
     
     if (!sizes.find(s => s.value === testSizeOption) && sizes.length > 0) {
         const newSize = sizes.find(s => s.value === 'all')?.value || sizes[0].value;
-        if (testSizeOption !== newSize) { // Only set if different to avoid potential loops
+        if (testSizeOption !== newSize) {
              // This might cause a re-render if testSizeOption changes.
              // Ensure this doesn't create an infinite loop with other effects.
              // It's generally safer to handle such defaulting higher up or on initial load.
@@ -413,7 +413,7 @@ export default function TestView() {
           <ArrowLeft className="mr-2 h-4 w-4" /> {t('decks')}
         </Button>
         <h2 className="text-2xl font-semibold">{isMasteryRun ? t('masteryChallengeTitle') : t('testMode')} - {deck.name}</h2>
-        <Button variant="outline" size="icon" onClick={() => setAllowHints(prev => !prev)} title={t(allowHints ? 'testToggleHintsOff' : 'testToggleHintsOn')}>
+        <Button variant="outline" size="icon" onClick={() => setAllowHints(prev => !prev)} title={t(allowHints ? 'testToggleHintsOn' : 'testToggleHintsOff')}>
           {allowHints ? <Lightbulb className="h-5 w-5" /> : <LightbulbOff className="h-5 w-5" />}
         </Button>
       </div>
@@ -496,7 +496,7 @@ export default function TestView() {
           <CardFooter className="flex justify-around text-lg font-medium pt-6">
             <span>{t('correct')}: {correctCount}</span>
             <span>{t('incorrect')}: {incorrectCount}</span>
-            <span>{askedCardIds.size} / {currentTestQueue.length}</span>
+            <span>{t('totalTested')}: {askedCardIds.size} / {currentTestQueue.length}</span>
           </CardFooter>
         </Card>
       ) : (
