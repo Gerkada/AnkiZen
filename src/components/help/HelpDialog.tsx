@@ -81,6 +81,14 @@ export default function HelpDialog({ isOpen, onOpenChange }: HelpDialogProps) {
       content: (
         <>
           <p className="mb-2" dangerouslySetInnerHTML={{ __html: t('helpManagingCardsP1') }}></p>
+          <h4 className="font-semibold mt-3 mb-1" dangerouslySetInnerHTML={{ __html: t('helpManagingCardsFilteringTitle') }}></h4>
+          <p className="mb-2" dangerouslySetInnerHTML={{ __html: t('helpManagingCardsFilteringP1') }}></p>
+          <ul className="list-disc pl-5 mb-2 space-y-1">
+            <li dangerouslySetInnerHTML={{ __html: t('helpManagingCardsFilterSearch') }}></li>
+            <li dangerouslySetInnerHTML={{ __html: t('helpManagingCardsFilterTags') }}></li>
+            <li dangerouslySetInnerHTML={{ __html: t('helpManagingCardsFilterStatus') }}></li>
+          </ul>
+          <h4 className="font-semibold mt-3 mb-1" dangerouslySetInnerHTML={{ __html: t('helpManagingCardsActionsTitle') }}></h4>
           <ul className="list-disc pl-5 space-y-1">
             <li dangerouslySetInnerHTML={{ __html: t('helpManagingCardsAddNew') }}></li>
             <li dangerouslySetInnerHTML={{ __html: t('helpManagingCardsEditExisting') }}></li>
@@ -208,3 +216,4 @@ export default function HelpDialog({ isOpen, onOpenChange }: HelpDialogProps) {
     </Dialog>
   );
 }
+

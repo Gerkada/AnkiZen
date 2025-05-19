@@ -6,15 +6,20 @@ import type { Card as CardType } from '@/types';
 import { useApp } from '@/contexts/AppContext';
 import { useLanguage } from '@/contexts/LanguageProvider';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, PlusCircle, Edit2, Trash2, Bug, MoreVertical, Ban, RotateCcw } from 'lucide-react'; 
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import { ArrowLeft, PlusCircle, Edit2, Trash2, Bug, MoreVertical, Ban, RotateCcw, FilterX } from 'lucide-react'; 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import CardEditor from './CardEditor';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
+import { formatISO, parseISO, isBefore, startOfDay, addDays, isAfter, isSameDay } from 'date-fns';
 
+const LEARNING_THRESHOLD_DAYS = 7; // Cards with interval <= this are "learning"
 
 export default function EditCardsView() {
   const { 
@@ -32,14 +37,66 @@ export default function EditCardsView() {
   const [isAddingCard, setIsAddingCard] = useState(false); 
   const [cardToDelete, setCardToDelete] = useState<CardType | null>(null);
 
+  // Filter states
+  const [searchTerm, setSearchTerm] = useState('');
+  const [tagsFilterInput, setTagsFilterInput] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
 
   const deck = useMemo(() => selectedDeckId ? getDeckById(selectedDeckId) : null, [selectedDeckId, getDeckById]);
-  const cardsInDeck = useMemo(() => selectedDeckId ? getCardsByDeckId(selectedDeckId) : [], [selectedDeckId, getCardsByDeckId]);
+  const allCardsInDeck = useMemo(() => selectedDeckId ? getCardsByDeckId(selectedDeckId) : [], [selectedDeckId, getCardsByDeckId]);
   
-  const sortedCards = useMemo(() => {
-    return [...cardsInDeck].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-  }, [cardsInDeck]);
+  const filteredAndSortedCards = useMemo(() => {
+    let filtered = [...allCardsInDeck];
+    const today = startOfDay(new Date());
 
+    // Apply search term filter
+    if (searchTerm.trim()) {
+      const lowerSearchTerm = searchTerm.toLowerCase();
+      filtered = filtered.filter(card =>
+        card.front.toLowerCase().includes(lowerSearchTerm) ||
+        (card.reading && card.reading.toLowerCase().includes(lowerSearchTerm)) ||
+        card.translation.toLowerCase().includes(lowerSearchTerm)
+      );
+    }
+
+    // Apply tags filter
+    const filterTagsArray = tagsFilterInput.split(',').map(tag => tag.trim().toLowerCase()).filter(tag => tag);
+    if (filterTagsArray.length > 0) {
+      filtered = filtered.filter(card =>
+        filterTagsArray.some(ft => (card.tags || []).map(ct => ct.toLowerCase()).includes(ft))
+      );
+    }
+
+    // Apply status filter
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(card => {
+        switch (statusFilter) {
+          case 'new':
+            return card.repetitions === 0 && !card.isSuspended;
+          case 'due':
+            return isBefore(parseISO(card.dueDate), addDays(today, 1)) && !card.isSuspended && !card.isLeech;
+          case 'learning':
+            return card.repetitions > 0 && card.interval <= LEARNING_THRESHOLD_DAYS && card.interval > 0 && !card.isSuspended;
+          case 'learned':
+            return card.interval > LEARNING_THRESHOLD_DAYS && !card.isSuspended;
+          case 'suspended':
+            return card.isSuspended === true;
+          case 'leech':
+            return card.isLeech === true && !card.isSuspended; // Show leeches that aren't also suspended by filter
+          default:
+            return true;
+        }
+      });
+    }
+
+    return filtered.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  }, [allCardsInDeck, searchTerm, tagsFilterInput, statusFilter]);
+
+  const clearFilters = () => {
+    setSearchTerm('');
+    setTagsFilterInput('');
+    setStatusFilter('all');
+  };
 
   if (!deck) {
     return (
@@ -90,18 +147,78 @@ export default function EditCardsView() {
       suspendCard(card.id);
     }
   };
+  
+  const statusOptions = [
+    { value: 'all', labelKey: 'statusAll' },
+    { value: 'new', labelKey: 'statusNew' },
+    { value: 'due', labelKey: 'statusDue' },
+    { value: 'learning', labelKey: 'statusLearning' },
+    { value: 'learned', labelKey: 'statusLearned' },
+    { value: 'suspended', labelKey: 'statusSuspended' },
+    { value: 'leech', labelKey: 'statusLeech' },
+  ];
+
+  const filtersApplied = searchTerm.trim() !== '' || tagsFilterInput.trim() !== '' || statusFilter !== 'all';
 
   return (
     <div className="p-4 md:p-6 space-y-6">
-      <div className="flex justify-between items-center">
-        <Button variant="outline" onClick={() => setCurrentView('deck-list')}>
+      <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+        <Button variant="outline" onClick={() => setCurrentView('deck-list')} className="self-start sm:self-center">
           <ArrowLeft className="mr-2 h-4 w-4" /> {t('decks')}
         </Button>
-        <h2 className="text-2xl font-semibold">{t('editCards')} - {deck.name}</h2>
-        <Button onClick={handleAddNew}>
+        <h2 className="text-2xl font-semibold text-center sm:text-left flex-grow">{t('editCards')} - {deck.name}</h2>
+        <Button onClick={handleAddNew} className="self-end sm:self-center">
           <PlusCircle className="mr-2 h-4 w-4" /> {t('addCard')}
         </Button>
       </div>
+
+      {/* Filter Controls */}
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('filterCardsTitle')}</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+            <div>
+              <Label htmlFor="search-term">{t('searchCardContentLabel')}</Label>
+              <Input
+                id="search-term"
+                placeholder={t('searchCardContentPlaceholder')}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="tags-filter">{t('filterByTagsLabel')}</Label>
+              <Input
+                id="tags-filter"
+                placeholder={t('filterByTagsPlaceholder')}
+                value={tagsFilterInput}
+                onChange={(e) => setTagsFilterInput(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="status-filter">{t('filterByStatusLabel')}</Label>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger id="status-filter">
+                  <SelectValue placeholder={t('filterByStatusPlaceholder')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {statusOptions.map(opt => (
+                    <SelectItem key={opt.value} value={opt.value}>{t(opt.labelKey)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+           {filtersApplied && (
+             <Button variant="outline" onClick={clearFilters} size="sm">
+               <FilterX className="mr-2 h-4 w-4" /> {t('clearFiltersButton')}
+             </Button>
+           )}
+        </CardContent>
+      </Card>
+
 
       {(isAddingCard || editingCard) && selectedDeckId && (
         <CardEditor
@@ -114,11 +231,17 @@ export default function EditCardsView() {
 
       <Card>
         <CardHeader>
-          <CardTitle>{t('cards')} ({sortedCards.length})</CardTitle>
+          <CardTitle>
+            {t('cards')}{' '}
+            ({filteredAndSortedCards.length}
+            {filtersApplied ? ` ${t('cardsCountFilteredFrom', { total: allCardsInDeck.length })}` : ''})
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          {sortedCards.length === 0 ? (
-            <p className="text-muted-foreground">{t('noCardsInDeck')}</p>
+          {allCardsInDeck.length === 0 ? (
+             <p className="text-muted-foreground">{t('noCardsInDeck')}</p>
+          ) : filteredAndSortedCards.length === 0 && filtersApplied ? (
+            <p className="text-muted-foreground">{t('noCardsMatchFilters')}</p>
           ) : (
             <Table>
               <TableHeader>
@@ -131,7 +254,7 @@ export default function EditCardsView() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sortedCards.map((card) => (
+                {filteredAndSortedCards.map((card) => (
                   <TableRow key={card.id} className={card.isSuspended ? 'opacity-50' : ''}>
                     <TableCell className="font-medium truncate max-w-xs flex items-center">
                        {card.isSuspended && (
@@ -229,3 +352,4 @@ export default function EditCardsView() {
     </div>
   );
 }
+

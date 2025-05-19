@@ -21,18 +21,21 @@ interface ChangelogDialogProps {
 
 interface ChangelogEntry {
   version: string;
-  // date: string; // Removed date
-  changes: string[]; // Array of translation keys for changes
+  changes: string[]; 
 }
 
 export default function ChangelogDialog({ isOpen, onOpenChange }: ChangelogDialogProps) {
   const { t } = useLanguage();
 
-  // This changelog is manually curated. In a real app, this might come from a file or API.
   const changelogData: ChangelogEntry[] = [
     {
-      version: t('changelogVersionCurrent'), // "1.2.0" (example)
-      // date: t('changelogDateCurrent'), // Removed date
+      version: t('changelogVersion_1_3_0'), 
+      changes: [
+        'changelog_1_3_0_cardFiltersEditView',
+      ],
+    },
+    {
+      version: t('changelogVersionCurrent'), // "1.2.0"
       changes: [
         'changelog_1_2_0_helpUpdate',
         'changelog_1_2_0_changelogFeature',
@@ -45,7 +48,6 @@ export default function ChangelogDialog({ isOpen, onOpenChange }: ChangelogDialo
     },
     {
       version: t('changelogVersion_1_1_0'),
-      // date: t('changelogDate_1_1_0'), // Removed date
       changes: [
         'changelog_1_1_0_suspendCards',
         'changelog_1_1_0_advancedSrsSettings',
@@ -57,7 +59,6 @@ export default function ChangelogDialog({ isOpen, onOpenChange }: ChangelogDialo
     },
     {
       version: t('changelogVersion_1_0_0'),
-      // date: t('changelogDate_1_0_0'), // Removed date
       changes: [
         'changelog_1_0_0_initialRelease',
         'changelog_1_0_0_deckManagement',
@@ -105,3 +106,4 @@ export default function ChangelogDialog({ isOpen, onOpenChange }: ChangelogDialo
     </Dialog>
   );
 }
+
