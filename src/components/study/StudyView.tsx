@@ -9,7 +9,7 @@ import Flashcard from './Flashcard';
 import StudyControls from './StudyControls';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, RotateCcw, Repeat, Settings, XCircle, Shuffle, ListChecks, BookCopy, CalendarDays, ChevronsRight, Filter, Sparkles } from 'lucide-react'; // Added Sparkles
+import { ArrowLeft, RotateCcw, Repeat, Settings, XCircle, Shuffle, ListChecks, BookCopy, CalendarDays, ChevronsRight, Filter, Sparkles } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Switch } from '@/components/ui/switch';
@@ -44,7 +44,7 @@ export default function StudyView() {
   const [sessionDueCardCount, setSessionDueCardCount] = useState(0);   
   const [sessionTotalCustomCount, setSessionTotalCustomCount] = useState(0); 
   const [showResetConfirm, setShowResetConfirm] = useState(false);
-  const [isZenMode, setIsZenMode] = useState(false); // State for Zen Mode
+  const [isZenMode, setIsZenMode] = useState(false);
   
   const deck = useMemo(() => selectedDeckId ? getDeckById(selectedDeckId) : null, [selectedDeckId, getDeckById]);
 
@@ -142,7 +142,7 @@ export default function StudyView() {
       const isAnyModalOpen = showResetConfirm || document.querySelector('[role="dialog"], [role="alertdialog"]');
       const targetIsInput = event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement;
 
-      if (isAnyModalOpen && !targetIsInput) return;
+      if (isAnyModalOpen && !targetIsInput) return; // Changed this condition from original PR
 
       if (event.key === ' ' && !targetIsInput) {
         event.preventDefault();
@@ -320,14 +320,14 @@ export default function StudyView() {
 
   return (
     <div className={`flex flex-col items-center p-4 md:p-6 ${isZenMode ? 'justify-center min-h-[calc(100vh-4rem)]' : ''}`}>
-      <div className={`w-full max-w-3xl mb-6 flex justify-between items-center ${isZenMode ? 'absolute top-4 right-4 left-auto w-auto' : ''}`}>
+      <div className={`w-full max-w-3xl mb-6 flex justify-between items-center ${isZenMode ? 'absolute top-4 right-4 left-auto w-auto z-[60]' : ''}`}>
         {!isZenMode && (
           <Button variant="outline" onClick={() => { setCurrentView('deck-list'); setCustomStudyParams(null); }}>
             <ArrowLeft className="mr-2 h-4 w-4" /> {t('decks')}
           </Button>
         )}
         {!isZenMode && (
-          <h2 className="text-2xl font-semibold">{deck.name} {isCustomSessionActive && <span className="text-base text-muted-foreground">({t('customSessionLabel')})</span>}</h2>
+          <h2 className="text-2xl font-semibold text-center flex-grow">{deck.name} {isCustomSessionActive && <span className="text-base text-muted-foreground">({t('customSessionLabel')})</span>}</h2>
         )}
         
         <div className="flex items-center space-x-2">
@@ -497,3 +497,5 @@ export default function StudyView() {
     </div>
   );
 }
+
+    
