@@ -141,7 +141,6 @@
   "helpLeechesTitle": "Problem Cards (Leeches)",
   "helpAppSettingsTitle": "App Settings",
   "close": "Close",
-
   "helpGettingStartedP1": "Welcome to AnkiZen! This app helps you learn and memorize anything using flashcards and a Spaced Repetition System (SRS).",
   "helpGettingStartedP2": "SRS optimizes your study schedule by showing you cards just before you're likely to forget them, making learning more efficient.",
   "helpDeckManagementCreatingTitle": "Creating Decks:",
@@ -166,8 +165,8 @@
   "helpManagingCardsAddNew": "<strong>Add New Cards:</strong> Use the \"Add Card\" button.",
   "helpManagingCardsEditExisting": "<strong>Edit Existing Cards:</strong> Click the edit icon (pencil) next to a card.",
   "helpManagingCardsDelete": "<strong>Delete Cards:</strong> Click the delete icon (trash can) next to a card.",
-  "helpTestModeP1": "Click \"Take Test\" on a deck (requires at least 4 cards). You'll be shown a word, and you must choose the correct translation from four options. One option is correct; three are incorrect options taken from other cards in the deck.",
-  "helpTestModeP2": "Your score (correct/incorrect) is tracked. If a card has a \"reading\" (like furigana), a \"Show Hint\" button may appear.",
+  "helpTestModeP1": "Click \"Take Test\" on a deck (requires at least 4 cards). You can choose what information is presented as the question (e.g., Term, Reading, or Definition) and what type of information you need to select as the answer.",
+  "helpTestModeP2": "Your score (correct/incorrect) is tracked. A global 'Toggle Hints' button (lightbulb icon) allows you to turn hints on or off for the session. If hints are on, relevant information (like reading for a term, or term for a definition) may be shown.",
   "helpStatisticsP1": "Access statistics via the settings menu in the app header. You can see:",
   "helpStatisticsTotalDecksCards": "Total number of decks and cards.",
   "helpStatisticsStreaks": "Current and longest learning streaks.",
@@ -181,5 +180,17 @@
   "helpLeechesP3": "This helps prevent difficult cards from dominating your reviews and allows you to focus on them separately if needed (e.g., by editing or re-learning them).",
   "helpAppSettingsP1": "Global app settings are available in the dropdown menu (gear icon) in the header:",
   "helpAppSettingsTheme": "<strong>Theme:</strong> Switch between Light and Dark mode.",
-  "helpAppSettingsLanguage": "<strong>Language:</strong> Change the application's display language."
+  "helpAppSettingsLanguage": "<strong>Language:</strong> Change the application's display language.",
+  "testQuestionFieldLabel": "Show as Question:",
+  "testAnswerFieldLabel": "Select Answer Type:",
+  "testFieldFront": "Term/Kanji",
+  "testFieldReading": "Reading",
+  "testFieldTranslation": "Definition",
+  "testFieldSelectPlaceholder": "Select field type",
+  "testToggleHintsOn": "Turn Hints ON",
+  "testToggleHintsOff": "Turn Hints OFF",
+  "testDummyOption": "Option",
+  "notEnoughValidCardsForTest": "Not enough cards with valid content for the selected question/answer types (minimum {{minCount}} required)."
 }
+
+    
