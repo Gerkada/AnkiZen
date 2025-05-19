@@ -5,10 +5,16 @@ import { addDays, formatISO, startOfDay } from 'date-fns';
 const MIN_EASE_FACTOR = 1.3;
 const DEFAULT_EASE_FACTOR = 2.5;
 
+export interface SRSCustomIntervals {
+  good?: number;
+  easy?: number;
+  lapseAgain?: number;
+}
+
 export function calculateNextReview(
   card: Card, 
   grade: SRSGrade,
-  customInitialIntervals?: { good: number; easy: number }
+  customIntervals?: SRSCustomIntervals
 ): Partial<Card> {
   const today = startOfDay(new Date());
   let newInterval = card.interval;
@@ -17,7 +23,7 @@ export function calculateNextReview(
 
   if (grade === 'again') {
     newRepetitions = 0;
-    newInterval = 1; // Review tomorrow
+    newInterval = customIntervals?.lapseAgain ?? 1; // Use custom lapse interval or default to 1 day
     newEaseFactor = Math.max(MIN_EASE_FACTOR, newEaseFactor - 0.2);
   } else {
     newRepetitions += 1;
@@ -26,9 +32,9 @@ export function calculateNextReview(
       if (grade === 'hard') {
         newInterval = 1;
       } else if (grade === 'good') {
-        newInterval = customInitialIntervals?.good ?? 3;
+        newInterval = customIntervals?.good ?? 3;
       } else if (grade === 'easy') {
-        newInterval = customInitialIntervals?.easy ?? 5;
+        newInterval = customIntervals?.easy ?? 5;
       }
     } else if (newRepetitions === 2) {
       // Second successful repetition
@@ -83,6 +89,7 @@ export function createNewCard(deckId: string, front: string, reading: string, tr
     isLeech: false,
     isSuspended: false,
     buriedUntil: null,
+    tags: [], // Initialize tags as an empty array
     createdAt: now,
     updatedAt: now,
   };

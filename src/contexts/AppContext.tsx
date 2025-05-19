@@ -5,7 +5,7 @@ import type { ReactNode } from 'react';
 import { createContext, useContext, useState, useCallback, useEffect, useMemo } from 'react';
 import type { Deck, Card, UserSettings, AppView, SRSGrade, ReviewLog, TestConfig } from '@/types';
 import useLocalStorage from '@/hooks/useLocalStorage';
-import { calculateNextReview, createNewCard } from '@/lib/srs';
+import { calculateNextReview, createNewCard, type SRSCustomIntervals } from '@/lib/srs';
 import { formatISO, parseISO, isBefore, startOfDay, addDays, isAfter } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { getTranslator } from '@/lib/i18n'; 
@@ -23,16 +23,18 @@ interface ImportResult {
 
 // Leech thresholds
 const LEECH_CONSECUTIVE_AGAIN_THRESHOLD = 4;
-const LEECH_TOTAL_AGAIN_THRESHOLD = 8;
+const LEECH_TOTAL_AGAIN_THRESHOLD = 8; // For non-mature cards
 const LEECH_SUSPEND_INTERVAL_DAYS = 180; 
 const LEECH_INTERVAL_MATURITY_THRESHOLD = 21; 
 const LEECH_MIN_EASE_FACTOR = 1.3;
+const LEECH_TAG = "leech";
 
 // Default deck settings
 const DEFAULT_NEW_CARDS_PER_DAY = 20;
 const DEFAULT_MAX_REVIEWS_PER_DAY = 200;
 const DEFAULT_INITIAL_GOOD_INTERVAL = 3;
 const DEFAULT_INITIAL_EASY_INTERVAL = 5;
+const DEFAULT_LAPSE_AGAIN_INTERVAL = 1;
 
 
 interface AppContextState {
@@ -154,6 +156,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         newDeckProps.initialEasyInterval = DEFAULT_INITIAL_EASY_INTERVAL;
         deckNeedsUpdate = true;
       }
+      if (typeof deck.lapseAgainInterval === 'undefined') {
+        newDeckProps.lapseAgainInterval = DEFAULT_LAPSE_AGAIN_INTERVAL;
+        deckNeedsUpdate = true;
+      }
       if (deckNeedsUpdate) updatedDecksFlag = true;
       return deckNeedsUpdate ? { ...deck, ...newDeckProps } : deck;
     });
@@ -181,8 +187,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
             newCardProps.isSuspended = false;
             cardNeedsUpdate = true;
         }
-        if (typeof card.buriedUntil === 'undefined') { // Note: could be null, so check for undefined
+        if (typeof card.buriedUntil === 'undefined') { 
             newCardProps.buriedUntil = null;
+            cardNeedsUpdate = true;
+        }
+        if (typeof card.tags === 'undefined') {
+            newCardProps.tags = [];
             cardNeedsUpdate = true;
         }
         if (cardNeedsUpdate) updatedCardsFlag = true;
@@ -223,6 +233,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       maxReviewsPerDay: DEFAULT_MAX_REVIEWS_PER_DAY,
       initialGoodInterval: DEFAULT_INITIAL_GOOD_INTERVAL,
       initialEasyInterval: DEFAULT_INITIAL_EASY_INTERVAL,
+      lapseAgainInterval: DEFAULT_LAPSE_AGAIN_INTERVAL,
       createdAt: now, 
       updatedAt: now 
     };
@@ -320,16 +331,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
       }
       
-      const srsUpdates = calculateNextReview(card, grade, 
-        wasNewCard ? { good: currentDeck.initialGoodInterval, easy: currentDeck.initialEasyInterval } : undefined
-      );
+      const srsCustomIntervals: SRSCustomIntervals = {
+        good: currentDeck.initialGoodInterval,
+        easy: currentDeck.initialEasyInterval,
+        lapseAgain: currentDeck.lapseAgainInterval,
+      };
       
+      const srsUpdates = calculateNextReview(card, grade, srsCustomIntervals);
+      
+      let currentTags = [...(card.tags || [])];
+      if (!oldIsLeech && newIsLeech) {
+        if (!currentTags.includes(LEECH_TAG)) {
+          currentTags.push(LEECH_TAG);
+        }
+      }
+
       const cardUpdates: Partial<Card> & { id: string } = {
         id: cardId,
         ...srsUpdates,
         againCount: currentAgainCount,
         consecutiveAgainCount: currentConsecutiveAgainCount,
         isLeech: newIsLeech,
+        tags: currentTags,
       };
 
       if (!oldIsLeech && newIsLeech) {
@@ -384,6 +407,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const now = formatISO(new Date());
     setCards(prev => prev.map(c => {
       if (c.deckId === deckId) {
+        const newTags = (c.tags || []).filter(tag => tag !== LEECH_TAG);
         return {
           ...c,
           dueDate: now,
@@ -395,6 +419,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           isLeech: false,
           isSuspended: false,
           buriedUntil: null,
+          tags: newTags,
           updatedAt: now,
         };
       }
@@ -416,8 +441,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     updateCard({ 
       id: cardId, 
       isSuspended: false, 
-      buriedUntil: null, // Clear any bury state
-      dueDate: formatISO(new Date()) // Make due now
+      buriedUntil: null, 
+      dueDate: formatISO(new Date()) 
     });
     toast({ title: t('successTitle'), description: t('cardUnsuspendedMsg')});
   }, [updateCard, toast, t]);
@@ -450,6 +475,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             consecutiveAgainCount: 0,
             isSuspended: false,
             buriedUntil: null,
+            tags: (card.tags || []).filter(tag => tag !== LEECH_TAG), // Remove leech tag
             updatedAt: now,
           };
         }
@@ -472,7 +498,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const today = startOfDay(new Date());
     const allDeckCards = cards.filter(card => 
         card.deckId === deckId && 
-        !card.isLeech &&
+        !card.isLeech && // Don't study leeches directly unless explicitly handled elsewhere
         !card.isSuspended &&
         (!card.buriedUntil || isAfter(today, parseISO(card.buriedUntil)) || isSameDay(today, parseISO(card.buriedUntil)))
     );
@@ -508,14 +534,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     decks, cards, userSettings, reviewLogs, currentView, selectedDeckId, isLoading, testConfig,
     addDeck, renameDeck, updateDeck, deleteDeck, importCardsToDeck, markDeckAsLearned,
     addCardToDeck, updateCard, deleteCard, reviewCard, resetDeckProgress,
-    suspendCard, unsuspendCard, buryCardUntilTomorrow, // Added new card actions
+    suspendCard, unsuspendCard, buryCardUntilTomorrow,
     setCurrentView, setSelectedDeckId, updateUserSettings, setTestConfig,
     getDeckById, getCardsByDeckId, getDueCardsForDeck
   }), [
     decks, cards, userSettings, reviewLogs, currentView, selectedDeckId, isLoading, testConfig,
     addDeck, renameDeck, updateDeck, deleteDeck, importCardsToDeck, markDeckAsLearned,
     addCardToDeck, updateCard, deleteCard, reviewCard, resetDeckProgress,
-    suspendCard, unsuspendCard, buryCardUntilTomorrow, // Added new card actions
+    suspendCard, unsuspendCard, buryCardUntilTomorrow, 
     setCurrentView, setSelectedDeckId, updateUserSettings, setTestConfig,
     getDeckById, getCardsByDeckId, getDueCardsForDeck 
   ]);
@@ -531,10 +557,8 @@ export const useApp = () => {
   return context;
 };
 
-// Helper for getDueCardsForDeck to check if a date is today or in the past
 const isSameDay = (date1: Date, date2: Date): boolean => {
     return date1.getFullYear() === date2.getFullYear() &&
            date1.getMonth() === date2.getMonth() &&
            date1.getDate() === date2.getDate();
 }
-    

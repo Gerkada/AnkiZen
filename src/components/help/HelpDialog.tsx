@@ -70,6 +70,7 @@ export default function HelpDialog({ isOpen, onOpenChange }: HelpDialogProps) {
             <li dangerouslySetInnerHTML={{ __html: t('helpStudyingCardsSettingsNewPerDay') }}></li>
             <li dangerouslySetInnerHTML={{ __html: t('helpStudyingCardsSettingsMaxReviews') }}></li>
             <li dangerouslySetInnerHTML={{ __html: t('helpStudyingCardsSettingsInitialIntervals') }}></li>
+            <li dangerouslySetInnerHTML={{ __html: t('helpStudyingCardsSettingsLapseInterval') }}></li>
           </ul>
         </>
       ),
@@ -131,12 +132,12 @@ export default function HelpDialog({ isOpen, onOpenChange }: HelpDialogProps) {
         <>
           <p className="mb-2">{t('helpLeechesP1')}</p>
           <h4 className="font-semibold mt-3 mb-1">{t('helpLeechesDetectionTitle')}</h4>
-          <p className="mb-2">{t('helpLeechesDetectionP1')}</p>
+          <p className="mb-2" dangerouslySetInnerHTML={{ __html: t('helpLeechesDetectionP1') }}></p>
           <h4 className="font-semibold mt-3 mb-1">{t('helpLeechesActionsTitle')}</h4>
           <ul className="list-disc pl-5 space-y-1">
-            <li>{t('helpLeechesActionSuspended')}</li>
-            <li>{t('helpLeechesActionNotification')}</li>
-            <li>{t('helpLeechesActionIndicator')}</li>
+            <li dangerouslySetInnerHTML={{ __html: t('helpLeechesActionSuspended') }}></li>
+            <li dangerouslySetInnerHTML={{ __html: t('helpLeechesActionNotification') }}></li>
+            <li dangerouslySetInnerHTML={{ __html: t('helpLeechesActionIndicator') }}></li>
           </ul>
           <p className="mt-2">{t('helpLeechesP3')}</p>
         </>

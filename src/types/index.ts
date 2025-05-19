@@ -22,6 +22,7 @@ export interface Card {
   // Card states
   isSuspended?: boolean;
   buriedUntil?: string | null; // ISO date string for when the card is no longer buried
+  tags: string[]; // Added for card tagging
   createdAt: string; // ISO date string
   updatedAt: string; // ISO date string
 }
@@ -36,6 +37,7 @@ export interface Deck {
   maxReviewsPerDay: number; // Max total cards (new + due) to review in one session for this deck
   initialGoodInterval: number; // Initial interval in days for a 'good' rating on a new card
   initialEasyInterval: number; // Initial interval in days for an 'easy' rating on a new card
+  lapseAgainInterval: number; // Interval in days when 'Again' is pressed after a card has been learned
   createdAt: string; // ISO date string
   updatedAt: string; // ISO date string
 }
@@ -67,4 +69,3 @@ export type TestSizeOption = '10' | '20' | '50' | 'all';
 export interface TestConfig {
   isMasteryTest?: boolean;
 }
-

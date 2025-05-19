@@ -13,6 +13,7 @@ import CardEditor from './CardEditor';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import { Badge } from '@/components/ui/badge';
 
 
 export default function EditCardsView() {
@@ -122,10 +123,11 @@ export default function EditCardsView() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[30%]">{t('front')}</TableHead>
-                  <TableHead className="w-[25%]">{t('reading')}</TableHead>
-                  <TableHead className="w-[30%]">{t('translation')}</TableHead>
-                  <TableHead className="text-right w-[15%]">{t('actions')}</TableHead>
+                  <TableHead className="w-[25%]">{t('front')}</TableHead>
+                  <TableHead className="w-[20%]">{t('reading')}</TableHead>
+                  <TableHead className="w-[25%]">{t('translation')}</TableHead>
+                  <TableHead className="w-[20%]">{t('tagsLabel')}</TableHead>
+                  <TableHead className="text-right w-[10%]">{t('actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -144,7 +146,7 @@ export default function EditCardsView() {
                           </Tooltip>
                         </TooltipProvider>
                       )}
-                      {card.isLeech && !card.isSuspended && ( // Only show leech if not also suspended, to avoid icon clutter
+                      {card.isLeech && !card.isSuspended && ( 
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>
@@ -160,6 +162,10 @@ export default function EditCardsView() {
                     </TableCell>
                     <TableCell className="truncate max-w-xs">{card.reading || '-'}</TableCell>
                     <TableCell className="truncate max-w-xs">{card.translation}</TableCell>
+                    <TableCell className="truncate max-w-xs">
+                      {(card.tags && card.tags.length > 0) ? 
+                        card.tags.map(tag => <Badge key={tag} variant="secondary" className="mr-1 mb-1">{tag}</Badge>) : '-'}
+                    </TableCell>
                     <TableCell className="text-right">
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>

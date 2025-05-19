@@ -22,6 +22,7 @@ export default function CardEditor({ card, deckId, onSave, onCancel }: CardEdito
   const [front, setFront] = useState('');
   const [reading, setReading] = useState('');
   const [translation, setTranslation] = useState('');
+  const [tagsInput, setTagsInput] = useState('');
   const { addCardToDeck, updateCard } = useApp();
   const { t } = useLanguage();
   const { toast } = useToast();
@@ -29,13 +30,15 @@ export default function CardEditor({ card, deckId, onSave, onCancel }: CardEdito
   useEffect(() => {
     if (card) {
       setFront(card.front);
-      setReading(card.reading || ''); // Ensure reading is not undefined
+      setReading(card.reading || '');
       setTranslation(card.translation);
+      setTagsInput((card.tags || []).join(', '));
     } else {
       // Reset for new card
       setFront('');
       setReading('');
       setTranslation('');
+      setTagsInput('');
     }
   }, [card]);
 
@@ -49,12 +52,19 @@ export default function CardEditor({ card, deckId, onSave, onCancel }: CardEdito
         return;
     }
 
+    const tagsArray = tagsInput.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0);
 
     if (card) { // Editing existing card
-      updateCard({ id: card.id, front, reading, translation });
+      updateCard({ id: card.id, front, reading, translation, tags: tagsArray });
       toast({ title: t('successTitle'), description: t('cardUpdatedMsg') });
     } else { // Adding new card
-      addCardToDeck(deckId, front, reading, translation);
+      addCardToDeck(deckId, front, reading, translation); // Tags will be [] by default from createNewCard
+      // If we want to add tags immediately upon creation from this editor:
+      // const newCard = addCardToDeck(deckId, front, reading, translation);
+      // if (tagsArray.length > 0) {
+      //   updateCard({ id: newCard.id, tags: tagsArray });
+      // }
+      // For now, tags are added via edit after creation.
       toast({ title: t('successTitle'), description: t('cardAddedMsg') });
     }
     onSave();
@@ -74,6 +84,15 @@ export default function CardEditor({ card, deckId, onSave, onCancel }: CardEdito
       <div>
         <Label htmlFor="card-translation">{t('translation')}</Label>
         <Textarea id="card-translation" value={translation} onChange={(e) => setTranslation(e.target.value)} placeholder={t('translationPlaceholder')} />
+      </div>
+      <div>
+        <Label htmlFor="card-tags">{t('tagsLabel')}</Label>
+        <Input 
+          id="card-tags" 
+          value={tagsInput} 
+          onChange={(e) => setTagsInput(e.target.value)} 
+          placeholder={t('tagsPlaceholder')} 
+        />
       </div>
       <div className="flex justify-end space-x-2">
         <Button variant="outline" onClick={onCancel}>{t('cancel')}</Button>

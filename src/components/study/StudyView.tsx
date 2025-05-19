@@ -2,14 +2,14 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import type { Card as CardType, SRSGrade } from '@/types';
+import type { Card as CardType, SRSGrade, Deck } from '@/types';
 import { useApp } from '@/contexts/AppContext';
 import { useLanguage } from '@/contexts/LanguageProvider';
 import Flashcard from './Flashcard';
 import StudyControls from './StudyControls';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, RotateCcw, Repeat, Settings, XCircle, Shuffle, ListChecks, BookCopy, CalendarDays } from 'lucide-react'; // Added BookCopy, CalendarDays
+import { ArrowLeft, RotateCcw, Repeat, Settings, XCircle, Shuffle, ListChecks, BookCopy, CalendarDays, ChevronsRight } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Switch } from '@/components/ui/switch';
@@ -44,11 +44,12 @@ export default function StudyView() {
   
   const deck = useMemo(() => selectedDeckId ? getDeckById(selectedDeckId) : null, [selectedDeckId, getDeckById]);
 
-  // Local state for deck settings inputs to avoid direct binding to context that might cause rapid updates
   const [newCardsPerDayInput, setNewCardsPerDayInput] = useState<string | number>('');
   const [maxReviewsPerDayInput, setMaxReviewsPerDayInput] = useState<string | number>('');
   const [initialGoodIntervalInput, setInitialGoodIntervalInput] = useState<string | number>('');
   const [initialEasyIntervalInput, setInitialEasyIntervalInput] = useState<string | number>('');
+  const [lapseAgainIntervalInput, setLapseAgainIntervalInput] = useState<string | number>('');
+
 
   useEffect(() => {
     if (deck && selectedDeckId) {
@@ -59,11 +60,11 @@ export default function StudyView() {
           lastSessionDate: todayISO,
         });
       }
-      // Initialize local input states from deck settings
       setNewCardsPerDayInput(deck.newCardsPerDay);
       setMaxReviewsPerDayInput(deck.maxReviewsPerDay);
       setInitialGoodIntervalInput(deck.initialGoodInterval);
       setInitialEasyIntervalInput(deck.initialEasyInterval);
+      setLapseAgainIntervalInput(deck.lapseAgainInterval);
     }
   }, [deck, selectedDeckId, updateDeck]);
 
@@ -104,7 +105,8 @@ export default function StudyView() {
   const handleGradeSelect = useCallback((grade: SRSGrade) => {
     if (currentCard) {
       reviewCard(currentCard.id, grade);
-      setStudyQueue(prev => prev.slice(1));
+      // Optimistically remove from queue; actual data updates in AppContext
+      setStudyQueue(prev => prev.slice(1)); 
     }
   }, [currentCard, reviewCard]);
 
@@ -141,6 +143,7 @@ export default function StudyView() {
   const handleResetProgress = () => {
     if (selectedDeckId) {
       resetDeckProgress(selectedDeckId);
+      initializeStudySession(); // Re-initialize session after reset
       setShowResetConfirm(false);
     }
   };
@@ -159,22 +162,28 @@ export default function StudyView() {
     updateUserSettings({ showStudyControlsTooltip: false });
   };
 
-  const handleDeckSettingChange = (settingKey: keyof Pick<Deck, 'newCardsPerDay' | 'maxReviewsPerDay' | 'initialGoodInterval' | 'initialEasyInterval'>, value: string) => {
+  const handleDeckSettingChange = (
+    settingKey: keyof Pick<Deck, 'newCardsPerDay' | 'maxReviewsPerDay' | 'initialGoodInterval' | 'initialEasyInterval' | 'lapseAgainInterval'>, 
+    value: string
+  ) => {
     if (deck) {
       const numValue = parseInt(value, 10);
-      if (!isNaN(numValue) && numValue >= 0) {
+      if (!isNaN(numValue) && numValue >= (settingKey === 'lapseAgainInterval' || settingKey === 'initialGoodInterval' || settingKey === 'initialEasyInterval' ? 1 : 0) ) {
         updateDeck(deck.id, { [settingKey]: numValue });
         // Update local state for inputs
         if (settingKey === 'newCardsPerDay') setNewCardsPerDayInput(numValue);
         if (settingKey === 'maxReviewsPerDay') setMaxReviewsPerDayInput(numValue);
         if (settingKey === 'initialGoodInterval') setInitialGoodIntervalInput(numValue);
         if (settingKey === 'initialEasyInterval') setInitialEasyIntervalInput(numValue);
-      } else { // Handle empty string or invalid input by resetting to current deck value or a default
-        const resetValue = deck[settingKey] || 0;
+        if (settingKey === 'lapseAgainInterval') setLapseAgainIntervalInput(numValue);
+
+      } else { 
+        const resetValue = deck[settingKey] || (settingKey === 'lapseAgainInterval' || settingKey === 'initialGoodInterval' || settingKey === 'initialEasyInterval' ? 1 : 0);
         if (settingKey === 'newCardsPerDay') setNewCardsPerDayInput(resetValue);
         if (settingKey === 'maxReviewsPerDay') setMaxReviewsPerDayInput(resetValue);
         if (settingKey === 'initialGoodInterval') setInitialGoodIntervalInput(resetValue);
         if (settingKey === 'initialEasyInterval') setInitialEasyIntervalInput(resetValue);
+        if (settingKey === 'lapseAgainInterval') setLapseAgainIntervalInput(resetValue);
       }
     }
   };
@@ -195,7 +204,7 @@ export default function StudyView() {
       }
     });
     return { underStudyCount: underStudy, learnedCount: learned, totalCount: allDeckCards.length };
-  }, [deck, selectedDeckId, getCardsByDeckId, studyQueue]);
+  }, [deck, selectedDeckId, getCardsByDeckId, studyQueue]); // Added studyQueue to re-calc when cards are graded
 
 
   if (!deck) {
@@ -270,6 +279,15 @@ export default function StudyView() {
       icon: CalendarDays, 
       value: initialEasyIntervalInput, 
       action: (val: string) => handleDeckSettingChange('initialEasyInterval', val),
+      type: 'input' as const,
+      min: "1"
+    },
+    { 
+      id: 'lapseAgainInterval', 
+      labelKey: 'lapseAgainInterval', 
+      icon: ChevronsRight, // Example icon
+      value: lapseAgainIntervalInput, 
+      action: (val: string) => handleDeckSettingChange('lapseAgainInterval', val),
       type: 'input' as const,
       min: "1"
     },
@@ -379,7 +397,7 @@ export default function StudyView() {
       {currentCard ? (
         <>
           <Flashcard
-            key={currentCard.id}
+            key={currentCard.id} // Key ensures component remounts when card changes
             card={currentCard} 
             isFlipped={isFlipped} 
             onFlip={handleFlip} 
