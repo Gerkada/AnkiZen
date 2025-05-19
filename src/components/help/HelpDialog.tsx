@@ -134,10 +134,10 @@ export default function HelpDialog({ isOpen, onOpenChange }: HelpDialogProps) {
         <>
           <p className="mb-2" dangerouslySetInnerHTML={{ __html: t('helpStatisticsP1') }}></p>
           <ul className="list-disc pl-5 space-y-1">
-            <li>{t('helpStatisticsTotalDecksCards')}</li>
-            <li>{t('helpStatisticsStreaks')}</li>
-            <li>{t('helpStatisticsIntervalDist')}</li>
-            <li>{t('helpStatisticsStudyActivity')}</li>
+            <li dangerouslySetInnerHTML={{ __html: t('helpStatisticsTotalDecksCards')}}></li>
+            <li dangerouslySetInnerHTML={{ __html: t('helpStatisticsStreaks')}}></li>
+            <li dangerouslySetInnerHTML={{ __html: t('helpStatisticsIntervalDist')}}></li>
+            <li dangerouslySetInnerHTML={{ __html: t('helpStatisticsStudyActivity')}}></li>
           </ul>
         </>
       ),
@@ -204,4 +204,3 @@ export default function HelpDialog({ isOpen, onOpenChange }: HelpDialogProps) {
     </Dialog>
   );
 }
-

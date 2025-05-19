@@ -12,7 +12,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { shuffleArray } from '@/lib/utils';
+import { shuffleArray, levenshteinDistance } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 
 interface TestOption {
@@ -27,10 +27,14 @@ interface TypedFeedback {
   isCorrect: boolean;
   userAnswer: string;
   correctAnswer: string;
+  wasTypo?: boolean;
 }
 
 const MIN_CARDS_FOR_MULTIPLE_CHOICE_OPTIONS = 4; 
 const DEFAULT_TEST_SIZE: TestSizeOption = '10';
+const TYPO_DISTANCE_THRESHOLD = 1;
+const TYPO_MIN_CORRECT_ANSWER_LENGTH = 3;
+
 
 export default function TestView() {
   const appContext = useApp();
@@ -274,12 +278,22 @@ export default function TestView() {
   const handleSubmitTypedAnswer = () => {
     if (isAnswered || !questionCard) return;
     
-    const correctAnswer = (questionCard[answerField] || '').trim().toLowerCase();
+    const correctAnswerRaw = questionCard[answerField] || '';
+    const correctAnswer = correctAnswerRaw.trim().toLowerCase();
     const userAnswer = typedAnswer.trim().toLowerCase();
-    const isCorrect = userAnswer === correctAnswer;
+    let isCorrect = userAnswer === correctAnswer;
+    let wasTypo = false;
+
+    if (!isCorrect && correctAnswer.length >= TYPO_MIN_CORRECT_ANSWER_LENGTH) {
+        const distance = levenshteinDistance(userAnswer, correctAnswer);
+        if (distance === TYPO_DISTANCE_THRESHOLD) {
+            isCorrect = true;
+            wasTypo = true;
+        }
+    }
 
     setIsAnswered(true);
-    setTypedFeedback({ isCorrect, userAnswer: typedAnswer, correctAnswer: questionCard[answerField] });
+    setTypedFeedback({ isCorrect, userAnswer: typedAnswer, correctAnswer: correctAnswerRaw, wasTypo });
 
     if (isCorrect) {
       setCorrectCount(prev => prev + 1);
@@ -292,7 +306,7 @@ export default function TestView() {
 
     setTimeout(() => {
       loadNextQuestion();
-    }, isCorrect ? 1500 : 3000); 
+    }, isCorrect ? (wasTypo ? 2500 : 1500) : 3000); 
   };
   
   const handleTestConfigChange = () => { 
@@ -373,7 +387,7 @@ export default function TestView() {
           <AlertTitle>{t('errorTitle')}</AlertTitle>
           <AlertDescription>{notEnoughCardsMessage}</AlertDescription>
         </Alert>
-        <Button onClick={() => setCurrentView('deck-list')} className="mt-4">
+        <Button onClick={() => { setCurrentView('deck-list'); setCustomStudyParams(null); }} className="mt-4">
           <ArrowLeft className="mr-2 h-4 w-4" /> {t('decks')}
         </Button>
       </div>
@@ -577,11 +591,12 @@ export default function TestView() {
                     ${isAnswered && typedFeedback && !typedFeedback.isCorrect ? 'border-red-500 ring-red-500 focus-visible:ring-red-500' : ''}
                   `}
                 />
-                {isAnswered && typedFeedback && !typedFeedback.isCorrect && (
-                  <p className="text-red-600 text-center">{t('testCorrectAnswerWas')}: {typedFeedback.correctAnswer}</p>
-                )}
-                {isAnswered && typedFeedback && typedFeedback.isCorrect && (
-                    <p className="text-green-600 text-center">{t('correctAnswerFeedback')}</p>
+                {isAnswered && typedFeedback && (
+                  <p className={`text-center ${typedFeedback.isCorrect && !typedFeedback.wasTypo ? 'text-green-600' : typedFeedback.wasTypo ? 'text-orange-600' : 'text-red-600'}`}>
+                    {typedFeedback.isCorrect && !typedFeedback.wasTypo && t('correctAnswerFeedback')}
+                    {typedFeedback.isCorrect && typedFeedback.wasTypo && t('typoCorrectedFeedback', { correctAnswer: typedFeedback.correctAnswer, userAnswer: typedFeedback.userAnswer })}
+                    {!typedFeedback.isCorrect && t('testCorrectAnswerWasTyped', { correctAnswer: typedFeedback.correctAnswer, userAnswer: typedFeedback.userAnswer })}
+                  </p>
                 )}
                 <Button type="submit" className="w-full text-lg py-3" disabled={isAnswered || !typedAnswer.trim()}>
                   <Send className="mr-2 h-5 w-5" />
