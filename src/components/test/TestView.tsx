@@ -105,22 +105,22 @@ export default function TestView() {
     setTypedFeedback(null);
     setTypedAnswer('');
     setIsAnswered(false);
+    setNotEnoughCardsMessage(null); // Clear any error message on config change
     if (isMasteryRun) {
         setMasteryTestAllCorrect(true);
     }
-  }, [isMasteryRun]); // isMasteryRun is stable enough for this reset logic
+  }, [isMasteryRun]); 
 
   useEffect(() => {
     if (testConfig?.isMasteryTest) {
       setIsMasteryRun(true);
       setTestSizeOption('all');
       setMasteryTestAllCorrect(true);
-      setTestConfig(null);
-      handleTestConfigChange(); // Ensure reset when mastery is initiated
+      setTestConfig(null); // Consume the config
+      handleTestConfigChange(); 
     }
   }, [testConfig, setTestConfig, handleTestConfigChange]);
 
-  // Effect to load raw cards from deck or custom session
   useEffect(() => {
     let initialCards: CardType[] = [];
     if (selectedDeckId) {
@@ -138,17 +138,15 @@ export default function TestView() {
         }
     }
     setRawDeckCards(initialCards);
-    handleTestConfigChange(); // Reset test state when card source changes
+    handleTestConfigChange(); 
   }, [selectedDeckId, getCardsByDeckId, isCustomSessionActive, customStudyParams, handleTestConfigChange]);
 
 
-  // Effect to filter raw cards into testable cards based on Q/A fields
   useEffect(() => {
     if (questionField === answerField) {
       if (questionField === 'front') setAnswerField('translation');
       else if (questionField === 'translation') setAnswerField('front');
       else setAnswerField('front');
-      // This state change will re-trigger this effect, so no need to proceed further here.
       return;
     }
 
@@ -159,35 +157,29 @@ export default function TestView() {
       return qVal && qVal.trim() !== '' && aVal && aVal.trim() !== '';
     });
     setTestableCards(filtered);
-    // When testable cards change, it might impact the ability to form a test,
-    // so we call handleTestConfigChange to reset scores and question.
-    // This is implicitly handled by the next effect reacting to testableCards.
   }, [questionField, answerField, rawDeckCards]);
 
-  // Effect to set up the current test queue based on testable cards and test size
   useEffect(() => {
-    if (isAppContextLoading) { // Wait for global app context to finish loading
+    if (isAppContextLoading) { 
       setCurrentTestQueue([]);
       setNotEnoughCardsMessage(null);
       return;
     }
     
-    if (!selectedDeckId && !isCustomSessionActive){ // No deck or custom session, can't form a test.
+    if (!selectedDeckId && !isCustomSessionActive){ 
         setCurrentTestQueue([]);
-        setNotEnoughCardsMessage(null); // Let the main render logic handle "select deck"
-        setIsTestOver(true); // Consider test "over" as it can't start
+        setNotEnoughCardsMessage(null); 
+        setIsTestOver(true); 
         return;
     }
     
-    // If rawDeckCards is empty BUT we expect them (selectedDeckId or custom session active),
-    // it might mean they are still loading into rawDeckCards.
-    // Only proceed if rawDeckCards actually has items or if we are sure it's an empty selection.
     if (rawDeckCards.length === 0 && (selectedDeckId || isCustomSessionActive)) {
-        // This could be a brief state while rawDeckCards populates.
-        // If after app loading rawDeckCards is still empty for a selected deck, it's an issue.
-        // Let the general loading state or "no cards" message handle this for now.
+        setNotEnoughCardsMessage(t('noCardsMatchTestSettings')); // Could be more specific, e.g., "Deck is empty"
+        setIsTestOver(true);
+        setQuestionCard(null);
+        setCurrentTestQueue([]);
+        return;
     }
-
 
     let minCardsRequired = 1;
     let specificMessageKey = 'noCardsMatchTestSettings';
@@ -196,7 +188,7 @@ export default function TestView() {
       specificMessageKey = 'notEnoughCardsForTestOptions';
     }
 
-    if (testableCards.length === 0 && rawDeckCards.length > 0) {
+    if (testableCards.length === 0) { // This implies rawDeckCards might have items, but none match Q/A filters
         setNotEnoughCardsMessage(t('noCardsMatchTestSettings'));
         setIsTestOver(true);
         setQuestionCard(null);
@@ -211,7 +203,7 @@ export default function TestView() {
         return;
     }
 
-    setNotEnoughCardsMessage(null); // Clear any previous "not enough cards" message
+    setNotEnoughCardsMessage(null); 
 
     let queue: CardType[] = [];
     if (testSizeOption === 'all' || isMasteryRun || isCustomSessionActive) {
@@ -224,17 +216,16 @@ export default function TestView() {
         queue = shuffleArray([...testableCards]).slice(0, size);
       }
     }
-    setCurrentTestQueue(queue);
-
-    if (queue.length > 0 && isTestOver) {
-      setIsTestOver(false);
-    } else if (queue.length === 0 && rawDeckCards.length > 0) {
+    
+    if (queue.length === 0) { // Should be caught by earlier checks, but as a fallback
         setNotEnoughCardsMessage(t('noCardsMatchTestSettings'));
         setIsTestOver(true);
-        setQuestionCard(null);
-        setOptions([]);
+    } else if (isTestOver) { // If test was over but now we have a queue (e.g. config changed)
+      setIsTestOver(false);
     }
-  }, [testableCards, testSizeOption, isMasteryRun, t, rawDeckCards.length, selectedDeckId, isAppContextLoading, testVariant, isCustomSessionActive]);
+    setCurrentTestQueue(queue);
+
+  }, [testableCards, testSizeOption, isMasteryRun, t, rawDeckCards, selectedDeckId, isAppContextLoading, testVariant, isCustomSessionActive]);
 
 
   const loadNextQuestion = useCallback(() => {
@@ -243,7 +234,6 @@ export default function TestView() {
     setTypedFeedback(null);
     setTypedAnswer('');
 
-    // Do not modify currentTestQueue here, it's set by its own effect.
     const queueForNextQuestion = currentTestQueue;
 
     if (!deck && !isCustomSessionActive) {
@@ -253,21 +243,13 @@ export default function TestView() {
         return;
     }
     
-    if (queueForNextQuestion.length === 0) {
-        // This condition should be caught by the useEffect that builds currentTestQueue,
-        // which would set isTestOver and notEnoughCardsMessage.
-        // If we reach here with an empty queue, it implies test setup is complete or failed.
-        setQuestionCard(null);
-        setOptions([]);
-        // Avoid setting isTestOver here directly if queue is empty from the start
-        // as the main setup effect should handle that determination.
-        return;
-    }
-
     const availableCards = queueForNextQuestion.filter(card => !askedCardIds.has(card.id));
 
     if (availableCards.length === 0) {
-      setIsTestOver(true);
+      // Only set isTestOver to true here if the queue itself wasn't empty to begin with
+      if (queueForNextQuestion.length > 0) {
+        setIsTestOver(true);
+      }
       setQuestionCard(null);
       setOptions([]);
       return;
@@ -308,12 +290,11 @@ export default function TestView() {
   }, [deck, currentTestQueue, askedCardIds, testableCards, questionField, answerField, t, testVariant, isCustomSessionActive]);
 
 
-   // Effect to load the first question or when the queue changes.
    useEffect(() => {
     if (currentTestQueue.length > 0 && !isTestOver && !questionCard && askedCardIds.size === 0) {
       loadNextQuestion();
     }
-  }, [currentTestQueue, isTestOver, questionCard, askedCardIds, loadNextQuestion]);
+  }, [currentTestQueue, isTestOver, questionCard, askedCardIds.size, loadNextQuestion]);
 
 
   const handleAnswerMultipleChoice = (option: TestOption) => {
@@ -396,7 +377,10 @@ export default function TestView() {
     if (availableTestSizes.length > 0 && !availableTestSizes.find(s => s.value === testSizeOption)) {
       setTestSizeOption(availableTestSizes.find(s => s.value === 'all')?.value || availableTestSizes[0].value);
     } else if (availableTestSizes.length === 0 && testSizeOption !== 'all' && rawDeckCards.length > 0) {
-      setTestSizeOption('all');
+      // If no specific sizes are available but there are raw cards (meaning testableCards might be 0 due to filters)
+      // keep 'all' as a potential if it was already set, or default to '10' (which will likely show "not enough cards").
+      // This condition is tricky, the effect building currentTestQueue should primarily handle "not enough cards".
+      // This effect mainly ensures testSizeOption is valid *among available choices*.
     }
   }, [availableTestSizes, testSizeOption, rawDeckCards.length]);
 
@@ -414,10 +398,15 @@ export default function TestView() {
   }, [isTestOver, isMasteryRun, masteryTestAllCorrect, incorrectCount, deck, selectedDeckId, markDeckAsLearned, currentTestQueue.length, askedCardIds.size, toast, t]);
 
 
-  // Render logic starts here
-
-  // 1. Initial "select deck" state if no deck/custom session is active
-  if (!deck && !isAppContextLoading && !selectedDeckId && !isCustomSessionActive) {
+  if (isAppContextLoading && !questionCard && !notEnoughCardsMessage) {
+    return (
+      <div className="flex flex-col items-center p-4 md:p-6 space-y-6">
+        <p>{t('loadingTest')}</p>
+      </div>
+    );
+  }
+  
+  if (!deck && !selectedDeckId && !isCustomSessionActive) {
     return (
       <div className="text-center py-10">
         <p>{t('selectDeckToStudy')}</p>
@@ -428,7 +417,6 @@ export default function TestView() {
     );
   }
 
-  // 2. "Not enough cards" error state
   if (notEnoughCardsMessage && isTestOver) {
     return (
       <div className="text-center py-10 space-y-4">
@@ -445,7 +433,6 @@ export default function TestView() {
     );
   }
 
-  // 3. "Test complete" state
   if (isTestOver && !notEnoughCardsMessage) {
      return (
       <div className="flex flex-col items-center justify-center p-4 md:p-6 space-y-6">
@@ -490,16 +477,6 @@ export default function TestView() {
     );
   }
 
-  // 4. Primary Loading State: If we expect a test but no question is ready, and no error/complete state.
-  if (!questionCard && !notEnoughCardsMessage && !isTestOver && (selectedDeckId || isCustomSessionActive)) {
-    return (
-      <div className="flex flex-col items-center p-4 md:p-6 space-y-6">
-        <p>{t('loadingTest')}</p>
-      </div>
-    );
-  }
-
-  // 5. Actual Test UI
   if (questionCard && !isTestOver && currentTestQueue.length > 0) {
     return (
       <div className="flex flex-col items-center p-4 md:p-6 space-y-6">
@@ -659,26 +636,10 @@ export default function TestView() {
     );
   }
 
-  // 6. Fallback "No cards match test settings" Alert
-  if (currentTestQueue.length === 0 && rawDeckCards.length > 0 && !isTestOver && !notEnoughCardsMessage && testableCards.length === 0 && !isAppContextLoading) {
-     return (
-        <div className="flex flex-col items-center p-4 md:p-6 space-y-6">
-            <Alert variant="default" className="mt-4">
-                <ShieldAlert className="h-4 w-4" />
-                <AlertTitle>{t('infoTitle')}</AlertTitle>
-                <AlertDescription>{t('noCardsMatchTestSettings')}</AlertDescription>
-            </Alert>
-             <Button onClick={() => { setCurrentView('deck-list'); setCustomStudyParams(null); }} className="mt-4">
-              <ArrowLeft className="mr-2 h-4 w-4" /> {t('decks')}
-            </Button>
-        </div>
-       );
-  }
-
-  // 7. Final fallback if none of the above states are met (should be rare)
+  // Fallback loading or empty state message if other conditions aren't met
   return (
     <div className="flex flex-col items-center p-4 md:p-6 space-y-6">
-      <p>{t('loadingTest')}</p>
+      <p>{t('loadingTest')}</p> 
     </div>
   );
 }
