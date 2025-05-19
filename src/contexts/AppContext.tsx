@@ -83,7 +83,7 @@ interface AppContextState {
   // Derived State / Helpers
   getDeckById: (deckId: string) => Deck | undefined;
   getCardsByDeckId: (deckId: string) => Card[];
-  getDueCardsForDeck: (deckId: string, isCustomSession?: boolean) => { due: Card[], newCards: Card[] };
+  getDueCardsForDeck: (deckId: string) => { due: Card[], newCards: Card[] };
 }
 
 const initialUserSettings: UserSettings = {
@@ -201,6 +201,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
             newCardProps.tags = [];
             cardNeedsUpdate = true;
         }
+        if (typeof card.notes === 'undefined') { // Added for Card Notes
+            newCardProps.notes = '';
+            cardNeedsUpdate = true;
+        }
         if (cardNeedsUpdate) updatedCardsFlag = true;
         return cardNeedsUpdate ? { ...card, ...newCardProps } : card;
     });
@@ -273,7 +277,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setCards(prev => prev.filter(c => c.deckId !== deckId));
     setReviewLogs(prev => prev.filter(log => log.deckId !== deckId)); 
     if (selectedDeckId === deckId) {
-      setSelectedDeckIdInternal(null); // Use internal setter to avoid loop with userSettings
+      setSelectedDeckIdInternal(null); 
     }
   }, [setDecks, setCards, setReviewLogs, selectedDeckId]);
 
@@ -434,6 +438,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           isSuspended: false,
           buriedUntil: null,
           tags: newTags,
+          notes: c.notes || '', // Ensure notes are preserved or initialized
           updatedAt: now,
         };
       }
@@ -474,7 +479,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const now = formatISO(new Date());
     const learnedInterval = 90; 
     const dueDate = formatISO(addDays(startOfDay(new Date()), learnedInterval));
-    const deck = decks.find(d => d.id === deckId); // Direct access to decks state
+    const deck = decks.find(d => d.id === deckId); 
 
     setCards(prevCards => 
       prevCards.map(card => {
@@ -501,12 +506,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if(deck){
       toast({ title: t('successTitle'), description: t('deckMarkedLearned', { deckName: deck.name }) });
     }
-  }, [setCards, decks, toast, t]); // Depends on `decks` for toast message
+  }, [setCards, decks, toast, t]); 
 
 
   const getCardsByDeckId = useCallback((deckId: string) => cards.filter(c => c.deckId === deckId), [cards]);
 
-  const getDueCardsForDeck = useCallback((deckId: string, isCustomSessionForTest: boolean = false) => {
+  const getDueCardsForDeck = useCallback((deckId: string) => {
     const currentDeck = decks.find(d => d.id === deckId); 
     if (!currentDeck) return { due: [], newCards: [] };
 
@@ -514,18 +519,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     const allValidCardsForSession = cards.filter(card => {
         if (card.deckId !== deckId || card.isSuspended) return false;
-        if (card.isLeech && !isCustomSessionForTest) return false; 
+        if (card.isLeech) return false; 
         
         const buriedUntilDate = card.buriedUntil ? parseISO(card.buriedUntil) : null;
         if (buriedUntilDate && (dateFnsIsSameDay(buriedUntilDate, today) || isAfter(buriedUntilDate, today))) {
-            return false; // Card is buried for today or a future date
+            return false; 
         }
         return true;
     });
-
-    if (isCustomSessionForTest) { // If called from TestView for its raw pool in non-custom mode
-        return { due: [], newCards: allValidCardsForSession };
-    }
     
     let potentialNewCards: Card[] = [];
     let potentialReviewCards: Card[] = [];
@@ -608,7 +609,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     addCardToDeck, updateCard, deleteCard, reviewCard, resetDeckProgress,
     suspendCard, unsuspendCard, buryCardUntilTomorrow, 
     setCurrentView, setSelectedDeckId, updateUserSettings, setTestConfig, setCustomStudyParams,
-    getDeckById, getCardsByDeckId, getDueCardsForDeck // Ensure all memoized functions are listed if they are part of the context
+    getDeckById, getCardsByDeckId, getDueCardsForDeck 
   ]);
 
   return <AppContext.Provider value={contextValue}>{children}</AppContext.Provider>;

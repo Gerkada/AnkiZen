@@ -9,12 +9,12 @@ export interface Card {
   front: string; // e.g., Kanji/Word
   reading: string; // e.g., Furigana/Pronunciation
   translation: string;
+  notes?: string; // Optional field for user notes
   // SRS data
   dueDate: string; // ISO date string
   interval: number; // in days
   easeFactor: number; // e.g., 2.5
   repetitions: number; // number of successful recalls
-  notes?: string; // Optional field for user notes
   // Leech tracking
   againCount: number;
   consecutiveAgainCount: number;

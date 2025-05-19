@@ -216,4 +216,3 @@ export default function HelpDialog({ isOpen, onOpenChange }: HelpDialogProps) {
     </Dialog>
   );
 }
-

@@ -80,6 +80,7 @@ export function createNewCard(deckId: string, front: string, reading: string, tr
     front,
     reading,
     translation,
+    notes: '', // Initialize notes as empty string
     dueDate: now, // Due immediately
     interval: 0,
     easeFactor: DEFAULT_EASE_FACTOR,
@@ -94,4 +95,3 @@ export function createNewCard(deckId: string, front: string, reading: string, tr
     updatedAt: now,
   };
 }
-

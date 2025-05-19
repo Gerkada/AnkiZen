@@ -32,6 +32,7 @@ export default function ChangelogDialog({ isOpen, onOpenChange }: ChangelogDialo
       version: t('changelogVersion_1_3_0'), 
       changes: [
         'changelog_1_3_0_cardFiltersEditView',
+        'changelog_1_3_0_cardNotes',
       ],
     },
     {
@@ -106,4 +107,3 @@ export default function ChangelogDialog({ isOpen, onOpenChange }: ChangelogDialo
     </Dialog>
   );
 }
-

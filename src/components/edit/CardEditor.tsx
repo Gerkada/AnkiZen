@@ -23,6 +23,7 @@ export default function CardEditor({ card, deckId, onSave, onCancel }: CardEdito
   const [reading, setReading] = useState('');
   const [translation, setTranslation] = useState('');
   const [tagsInput, setTagsInput] = useState('');
+  const [notesInput, setNotesInput] = useState(''); // State for notes
   const { addCardToDeck, updateCard } = useApp();
   const { t } = useLanguage();
   const { toast } = useToast();
@@ -33,12 +34,14 @@ export default function CardEditor({ card, deckId, onSave, onCancel }: CardEdito
       setReading(card.reading || '');
       setTranslation(card.translation);
       setTagsInput((card.tags || []).join(', '));
+      setNotesInput(card.notes || ''); // Load notes
     } else {
       // Reset for new card
       setFront('');
       setReading('');
       setTranslation('');
       setTagsInput('');
+      setNotesInput(''); // Reset notes
     }
   }, [card]);
 
@@ -55,16 +58,14 @@ export default function CardEditor({ card, deckId, onSave, onCancel }: CardEdito
     const tagsArray = tagsInput.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0);
 
     if (card) { // Editing existing card
-      updateCard({ id: card.id, front, reading, translation, tags: tagsArray });
+      updateCard({ id: card.id, front, reading, translation, tags: tagsArray, notes: notesInput });
       toast({ title: t('successTitle'), description: t('cardUpdatedMsg') });
     } else { // Adding new card
-      addCardToDeck(deckId, front, reading, translation); // Tags will be [] by default from createNewCard
-      // If we want to add tags immediately upon creation from this editor:
-      // const newCard = addCardToDeck(deckId, front, reading, translation);
-      // if (tagsArray.length > 0) {
-      //   updateCard({ id: newCard.id, tags: tagsArray });
-      // }
-      // For now, tags are added via edit after creation.
+      const newCard = addCardToDeck(deckId, front, reading, translation); // Creates card with empty notes
+      if (tagsArray.length > 0 || notesInput.trim() !== '') {
+        // Update immediately if tags or notes were entered for the new card
+        updateCard({ id: newCard.id, tags: tagsArray, notes: notesInput });
+      }
       toast({ title: t('successTitle'), description: t('cardAddedMsg') });
     }
     onSave();
@@ -92,6 +93,16 @@ export default function CardEditor({ card, deckId, onSave, onCancel }: CardEdito
           value={tagsInput} 
           onChange={(e) => setTagsInput(e.target.value)} 
           placeholder={t('tagsPlaceholder')} 
+        />
+      </div>
+      <div>
+        <Label htmlFor="card-notes">{t('cardNotes')}</Label>
+        <Textarea 
+          id="card-notes" 
+          value={notesInput} 
+          onChange={(e) => setNotesInput(e.target.value)} 
+          placeholder={t('cardNotesPlaceholder')} 
+          rows={3}
         />
       </div>
       <div className="flex justify-end space-x-2">
