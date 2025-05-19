@@ -27,7 +27,8 @@ export default function DeckItem({ deck, cardCount }: DeckItemProps) {
     deleteDeck, 
     importCardsToDeck, 
     getCardsByDeckId,
-    setTestConfig
+    setTestConfig,
+    testConfig // Ensure testConfig is available if needed for logic here, though it's not used currently
   } = useApp();
   const { t } = useLanguage();
   const { toast } = useToast();
@@ -38,7 +39,6 @@ export default function DeckItem({ deck, cardCount }: DeckItemProps) {
   const testableCardsCount = useMemo(() => {
     const cardsInDeck = getCardsByDeckId(deck.id);
     // A card is testable if it has content for at least two distinct fields among front, reading, translation
-    // This is a simplified check; TestView does more specific checks based on selected Q/A types
     return cardsInDeck.filter(card => {
       let populatedFields = 0;
       if (card.front?.trim()) populatedFields++;
@@ -145,7 +145,7 @@ export default function DeckItem({ deck, cardCount }: DeckItemProps) {
         onChange={handleFileSelected}
       />
       <Card
-        className="group relative flex flex-col cursor-pointer transition-transform transition-shadow duration-200 ease-in-out hover:shadow-xl hover:scale-105 hover:z-10 focus-within:shadow-xl focus-within:scale-105 focus-within:z-10 md:min-w-96"
+        className="group relative flex flex-col cursor-pointer transition-transform transition-shadow duration-200 ease-in-out hover:shadow-xl hover:scale-105 hover:z-10 focus-within:shadow-xl focus-within:scale-105 focus-within:z-10"
         tabIndex={0}
       >
         <CardHeader>
@@ -238,3 +238,4 @@ export default function DeckItem({ deck, cardCount }: DeckItemProps) {
     </>
   );
 }
+
