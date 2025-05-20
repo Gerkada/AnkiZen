@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { Moon, Sun, Settings2, BarChartHorizontalBig, HelpCircle, FileText, Minus, X, Square, Maximize2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -21,7 +22,7 @@ import HelpDialog from '@/components/help/HelpDialog';
 import ChangelogDialog from '@/components/changelog/ChangelogDialog';
 import { appWindow } from '@tauri-apps/api/window';
 
-export default function AppHeader() {
+function AppHeader() {
   const { theme, toggleTheme } = useTheme();
   const { language, setLanguage, t } = useLanguage();
   const { setCurrentView } = useApp();
@@ -125,3 +126,6 @@ export default function AppHeader() {
     </>
   );
 }
+
+// Export with dynamic to prevent SSR
+export default dynamic(() => Promise.resolve(AppHeader), { ssr: false });
