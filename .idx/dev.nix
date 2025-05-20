@@ -10,7 +10,9 @@
     pkgs.rustup
   ];
   # Sets environment variables in the workspace
-  env = {};
+  env = {
+    enableNodeAddons = true;
+  };
   # This adds a file watcher to startup the firebase emulators. The emulators will only start if
   # a firebase.json file is written into the user's directory
   services.firebase.emulators = {
