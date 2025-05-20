@@ -1,10 +1,17 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 body {
   font-family: Arial, Helvetica, sans-serif;
+}
+
+[data-tauri-drag-region] {
+  -webkit-app-region: drag;
+}
+
+button {
+  -webkit-app-region: no-drag;
 }
 
 @layer base {
